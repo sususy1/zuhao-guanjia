@@ -46,14 +46,15 @@ class UHaoZuAdapter(BasePlatformAdapter):
                 )
                 resp.raise_for_status()
                 data = resp.json()
-                goods_list = data.get("data", {}).get("list", []) or data.get("list", [])
+                # U号租实际返回格式: {"success":true,"totalCount":15,"object":[...]}
+                goods_list = data.get("object", []) or data.get("data", {}).get("list", []) or data.get("list", [])
                 if not goods_list:
                     break
                 for item in goods_list:
                     listing = self._parse_goods_json(item, account)
                     if listing:
                         listings.append(listing)
-                total = data.get("data", {}).get("total", 0) or data.get("total", 0)
+                total = data.get("totalCount", 0) or data.get("data", {}).get("total", 0) or data.get("total", 0)
                 if page * 50 >= total or len(goods_list) < 50:
                     break
                 page += 1
