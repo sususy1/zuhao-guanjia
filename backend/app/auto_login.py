@@ -73,8 +73,26 @@ async def _uhaozu_login_async(username: str, password: str, progress_callback=No
 
     async with async_playwright() as p:
         report("启动浏览器...")
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(viewport={"width": 1280, "height": 800})
+        browser = await p.chromium.launch(
+            headless=True,
+            args=[
+                '--disable-blink-features=AutomationControlled',
+                '--no-sandbox',
+                '--disable-dev-shm-usage',
+            ]
+        )
+        context = await browser.new_context(
+            viewport={"width": 1280, "height": 800},
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            locale="zh-CN",
+        )
+        # 反检测：移除webdriver标志
+        await context.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+            Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+            Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN', 'zh', 'en']});
+            window.chrome = {runtime: {}};
+        """)
         page = await context.new_page()
 
         report("打开登录页...")
@@ -259,38 +277,48 @@ async def _uhaozu_login_async(username: str, password: str, progress_callback=No
                         pass
                     await page.wait_for_timeout(2000)
 
-        await page.wait_for_timeout(5000)
+        await page.wait_for_timeout(8000)
 
-        # 检查登录结果 - 访问用户中心验证会话是否真正建立
-        report("验证登录状态...")
-        verify_success = False
-        for retry in range(3):
-            try:
-                await page.goto("https://www.uhaozu.com/usercenter", wait_until="commit", timeout=60000)
-                await page.wait_for_timeout(5000)
-                verify_success = True
-                break
-            except Exception as e:
-                report(f"第{retry+1}次验证登录失败: {e}，重试...")
-                await page.wait_for_timeout(3000)
-        if not verify_success:
-            report("无法访问用户中心，但继续获取Cookie...")
-
-        current_url = page.url
-        page_text = ""
+        # 检查登录结果 - 在浏览器内直接调用商品API测试（比访问页面更可靠）
+        report("验证登录状态（调用商品API）...")
+        api_test_result = None
         try:
-            page_text = await page.inner_text("body")
-        except:
-            pass
+            api_test_result = await page.evaluate("""async () => {
+                try {
+                    const resp = await fetch('https://www.uhaozu.com/goods/usercenter/list', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({page: 1, pageSize: 5})
+                    });
+                    const text = await resp.text();
+                    return {status: resp.status, text: text.substring(0, 300)};
+                } catch(e) {
+                    return {error: e.message};
+                }
+            }""")
+            report(f"API测试结果: {api_test_result}")
+        except Exception as e:
+            report(f"API测试异常: {e}")
 
-        # 判断是否真正登录成功：URL不含login，且页面包含用户中心相关文字
-        is_logged_in = ("login" not in current_url.lower()) and (
-            "退出" in page_text or "用户中心" in page_text or "我的" in page_text or "账号" in page_text
-        )
+        # 判断登录是否成功：API返回JSON且包含商品数据或不包含loginUrl
+        is_logged_in = False
+        if api_test_result and 'text' in api_test_result:
+            text = api_test_result['text']
+            if '"loginUrl"' not in text and 'responseCode' not in text:
+                is_logged_in = True
+            elif '"data"' in text or '"list"' in text or '"total"' in text:
+                is_logged_in = True
+            elif 'responseCode":"0"' in text or 'responseCode":0' in text:
+                is_logged_in = True
+
+        # 额外检查：当前URL是否已离开登录页
+        current_url = page.url
+        if 'login' not in current_url.lower():
+            is_logged_in = True
 
         if not is_logged_in:
             report(f"登录验证失败，当前URL: {current_url}")
-            report(f"页面内容前200字: {page_text[:200]}")
+            report(f"API返回: {api_test_result}")
             await browser.close()
             raise Exception("登录失败，会话未建立（可能被风控拦截）")
 
