@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#667eea">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<title>租号管家</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f6fa;color:#333;font-size:14px;min-height:100vh;padding-bottom:60px}
+.page{display:none;min-height:100vh}
+.page.active{display:block}
+.header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:16px;position:sticky;top:0;z-index:100}
+.header h1{font-size:18px;font-weight:600}
+.header .sub{font-size:12px;opacity:.8;margin-top:2px}
+.card{background:#fff;border-radius:12px;margin:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.btn{display:inline-block;padding:8px 16px;border-radius:8px;border:none;font-size:14px;cursor:pointer;text-align:center;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.btn-primary:active{transform:scale(.97)}
+.btn-outline{background:#fff;color:#667eea;border:1px solid #667eea}
+.btn-danger{background:#ff4757;color:#fff}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-block{display:block;width:100%}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.stat-box{text-align:center;padding:12px 8px}
+.stat-box .num{font-size:22px;font-weight:700;color:#667eea}
+.stat-box .label{font-size:11px;color:#999;margin-top:4px}
+.stat-box .num.green{color:#2ed573}
+.stat-box .num.orange{color:#ffa502}
+.stat-box .num.red{color:#ff4757}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:13px;color:#666;margin-bottom:6px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;outline:none;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#667eea}
+.list-item{padding:12px 0;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center}
+.list-item:last-child{border-bottom:none}
+.item-info{flex:1}
+.item-title{font-size:14px;font-weight:500;margin-bottom:4px}
+.item-desc{font-size:12px;color:#999}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+.badge-green{background:#e8f8f0;color:#2ed573}
+.badge-red{background:#ffe8e8;color:#ff4757}
+.badge-orange{background:#fff5e6;color:#ffa502}
+.badge-gray{background:#f0f0f0;color:#999}
+.badge-blue{background:#e8f0fe;color:#667eea}
+.tabbar{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;box-shadow:0 -2px 10px rgba(0,0,0,.05);z-index:100}
+.tabbar-item{flex:1;text-align:center;padding:8px 0;font-size:11px;color:#999;cursor:pointer}
+.tabbar-item.active{color:#667eea}
+.tabbar-item .icon{font-size:20px;display:block;margin-bottom:2px}
+.empty{text-align:center;padding:40px 20px;color:#999}
+.empty .icon{font-size:48px;margin-bottom:12px}
+.filter-bar{display:flex;gap:8px;padding:10px 12px;overflow-x:auto;white-space:nowrap;background:#fff;border-bottom:1px solid #f0f0f0}
+.filter-chip{padding:5px 12px;border-radius:16px;background:#f0f0f0;color:#666;font-size:12px;cursor:pointer;flex-shrink:0}
+.filter-chip.active{background:#667eea;color:#fff}
+.group-header{background:#f8f9fc;padding:10px 16px;font-size:13px;font-weight:600;color:#667eea;display:flex;justify-content:space-between;align-items:center}
+.listing-card{background:#fff;margin:8px 12px;padding:12px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.listing-title{font-size:14px;font-weight:500;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start}
+.listing-meta{display:flex;gap:12px;font-size:12px;color:#999;margin-bottom:8px}
+.listing-actions{display:flex;gap:8px}
+.remark-text{font-size:12px;color:#ffa502;background:#fff5e6;padding:4px 8px;border-radius:4px;margin-top:6px;display:inline-block}
+.login-page{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:30px}
+.login-logo{text-align:center;margin-bottom:30px}
+.login-logo .icon{font-size:64px}
+.login-logo h1{color:#fff;font-size:24px;margin-top:12px}
+.login-logo p{color:rgba(255,255,255,.7);font-size:13px;margin-top:6px}
+.login-box{background:#fff;border-radius:16px;padding:24px}
+.login-box .btn{margin-top:8px}
+.modal-mask{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:200;display:none;justify-content:center;align-items:center}
+.modal-mask.active{display:flex}
+.modal{background:#fff;border-radius:12px;width:90%;max-width:400px;max-height:80vh;overflow-y:auto;padding:20px}
+.modal h3{font-size:16px;margin-bottom:16px}
+.toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.8);color:#fff;padding:12px 24px;border-radius:8px;font-size:14px;z-index:300;display:none}
+.toast.show{display:block}
+.platform-tag{font-size:11px;padding:1px 6px;border-radius:4px;margin-right:6px}
+.platform-uhaozu{background:#e3f2fd;color:#1976d2}
+.platform-mima{background:#fce4ec;color:#c2185b}
+.platform-xubei{background:#e8f5e9;color:#388e3c}
+</style>
+</head>
+<body>
+
+<!-- 登录页 -->
+<div id="page-login" class="page active login-page">
+<div class="login-logo">
+<div class="icon">🎮</div>
+<h1>租号管家</h1>
+<p>多平台租号自动上下架管理</p>
+</div>
+<div class="login-box">
+<div class="form-group">
+<label>用户名</label>
+<input type="text" id="login-username" placeholder="请输入用户名" value="admin">
+</div>
+<div class="form-group">
+<label>密码</label>
+<input type="password" id="login-password" placeholder="请输入密码" value="admin123">
+</div>
+<button class="btn btn-primary btn-block" onclick="doLogin()">登 录</button>
+</div>
+</div>
+
+<!-- 首页 -->
+<div id="page-home" class="page">
+<div class="header">
+<h1>租号管家</h1>
+<div class="sub">多平台自动上下架 · 智能托管</div>
+</div>
+<div class="card">
+<div class="card-title">今日概览</div>
+<div class="grid-3">
+<div class="stat-box"><div class="num green" id="stat-today-income">0</div><div class="label">今日收益(元)</div></div>
+<div class="stat-box"><div class="num" id="stat-today-orders">0</div><div class="label">今日订单</div></div>
+<div class="stat-box"><div class="num orange" id="stat-today-hours">0</div><div class="label">出租时长(h)</div></div>
+</div>
+</div>
+<div class="card">
+<div class="card-title">账号状态</div>
+<div class="grid-3">
+<div class="stat-box"><div class="num" id="stat-total-accounts">0</div><div class="label">平台账号</div></div>
+<div class="stat-box"><div class="num green" id="stat-online-accounts">0</div><div class="label">在线</div></div>
+<div class="stat-box"><div class="num blue" id="stat-game-accounts">0</div><div class="label">游戏账号</div></div>
+</div>
+</div>
+<div class="card">
+<div class="card-title">商品状态</div>
+<div class="grid-3">
+<div class="stat-box"><div class="num" id="stat-total-listings">0</div><div class="label">商品总数</div></div>
+<div class="stat-box"><div class="num green" id="stat-onshelf-listings">0</div><div class="label">上架中</div></div>
+<div class="stat-box"><div class="num red" id="stat-rented-listings">0</div><div class="label">出租中</div></div>
+</div>
+</div>
+<div class="card">
+<div class="card-title">快捷操作</div>
+<div class="grid-2">
+<button class="btn btn-outline" onclick="switchPage('accounts')">📋 账号管理</button>
+<button class="btn btn-outline" onclick="switchPage('listings')">🎯 商品总览</button>
+<button class="btn btn-outline" onclick="switchPage('orders')">📦 订单记录</button>
+<button class="btn btn-outline" onclick="runConflictCheck()">⚡ 冲突检测</button>
+</div>
+</div>
+</div>
+
+<!-- 账号管理页 -->
+<div id="page-accounts" class="page">
+<div class="header">
+<h1>账号管理</h1>
+<div class="sub">管理各平台租号账号</div>
+</div>
+<div style="padding:12px">
+<button class="btn btn-primary btn-block" onclick="showAddAccountModal()">+ 添加平台账号</button>
+</div>
+<div id="accounts-list"></div>
+</div>
+
+<!-- 商品总览页 -->
+<div id="page-listings" class="page">
+<div class="header">
+<h1>商品总览</h1>
+<div class="sub">按游戏账号分组 · 跨平台统一管理</div>
+</div>
+<div class="filter-bar" id="listing-filters">
+<div class="filter-chip active" data-filter="all" onclick="filterListings('all',this)">全部</div>
+<div class="filter-chip" data-filter="on_shelf" onclick="filterListings('on_shelf',this)">上架中</div>
+<div class="filter-chip" data-filter="off_shelf" onclick="filterListings('off_shelf',this)">已下架</div>
+<div class="filter-chip" data-filter="rented" onclick="filterListings('rented',this)">出租中</div>
+</div>
+<div class="filter-bar" id="platform-filters">
+<div class="filter-chip active" data-platform="all" onclick="filterPlatform('all',this)">全部平台</div>
+</div>
+<div id="listings-container"></div>
+</div>
+
+<!-- 订单页 -->
+<div id="page-orders" class="page">
+<div class="header">
+<h1>订单记录</h1>
+<div class="sub">所有平台订单汇总</div>
+</div>
+<div class="filter-bar">
+<div class="filter-chip active" data-status="all" onclick="filterOrders('all',this)">全部</div>
+<div class="filter-chip" data-status="ongoing" onclick="filterOrders('ongoing',this)">进行中</div>
+<div class="filter-chip" data-status="completed" onclick="filterOrders('completed',this)">已完成</div>
+<div class="filter-chip" data-status="cancelled" onclick="filterOrders('cancelled',this)">已取消</div>
+</div>
+<div id="orders-list"></div>
+</div>
+
+<!-- 设置页 -->
+<div id="page-settings" class="page">
+<div class="header">
+<h1>设置</h1>
+<div class="sub">系统设置与帮助</div>
+</div>
+<div class="card">
+<div class="card-title">账号信息</div>
+<div class="list-item"><div class="item-info"><div class="item-title">当前用户</div><div class="item-desc" id="settings-username">admin</div></div></div>
+</div>
+<div class="card">
+<div class="card-title">关于</div>
+<div class="list-item"><div class="item-info"><div class="item-title">应用名称</div><div class="item-desc">租号管家</div></div></div>
+<div class="list-item"><div class="item-info"><div class="item-title">版本</div><div class="item-desc">0.1.0</div></div></div>
+<div class="list-item"><div class="item-info"><div class="item-title">已对接平台</div><div class="item-desc">U号租、密马、虚贝</div></div></div>
+</div>
+<div class="card">
+<button class="btn btn-danger btn-block" onclick="doLogout()">退出登录</button>
+</div>
+</div>
+
+<!-- 底部导航 -->
+<div class="tabbar">
+<div class="tabbar-item active" data-page="home" onclick="switchPage('home')"><span class="icon">🏠</span>首页</div>
+<div class="tabbar-item" data-page="accounts" onclick="switchPage('accounts')"><span class="icon">📋</span>账号</div>
+<div class="tabbar-item" data-page="listings" onclick="switchPage('listings')"><span class="icon">🎯</span>商品</div>
+<div class="tabbar-item" data-page="orders" onclick="switchPage('orders')"><span class="icon">📦</span>订单</div>
+<div class="tabbar-item" data-page="settings" onclick="switchPage('settings')"><span class="icon">⚙️</span>我的</div>
+</div>
+
+<!-- 添加账号弹窗 -->
+<div class="modal-mask" id="modal-add-account">
+<div class="modal">
+<h3>添加平台账号</h3>
+<div class="form-group">
+<label>选择平台</label>
+<select id="add-platform">
+<option value="uhaozu">U号租</option>
+<option value="mima">密马</option>
+<option value="xubei">虚贝</option>
+</select>
+</div>
+<div class="form-group">
+<label>平台用户名</label>
+<input type="text" id="add-username" placeholder="平台登录用户名">
+</div>
+<div class="form-group">
+<label>平台密码（可选）</label>
+<input type="password" id="add-password" placeholder="平台登录密码">
+</div>
+<div class="form-group">
+<label>昵称（可选）</label>
+<input type="text" id="add-nickname" placeholder="给这个账号起个名字">
+</div>
+<div class="form-group">
+<label>分组</label>
+<input type="text" id="add-group" value="默认分组">
+</div>
+<div style="display:flex;gap:10px">
+<button class="btn btn-outline" style="flex:1" onclick="closeModal('modal-add-account')">取消</button>
+<button class="btn btn-primary" style="flex:1" onclick="submitAddAccount()">确定</button>
+</div>
+</div>
+</div>
+
+<!-- 账号详情弹窗 -->
+<div class="modal-mask" id="modal-account-detail">
+<div class="modal">
+<h3 id="detail-title">账号详情</h3>
+<div id="detail-content"></div>
+<div style="display:flex;gap:10px;margin-top:16px">
+<button class="btn btn-outline" style="flex:1" onclick="closeModal('modal-account-detail')">关闭</button>
+<button class="btn btn-primary" style="flex:1" onclick="syncCurrentAccount()">立即同步</button>
+</div>
+</div>
+</div>
+
+<!-- 编辑商品弹窗 -->
+<div class="modal-mask" id="modal-edit-listing">
+<div class="modal">
+<h3>编辑商品</h3>
+<div class="form-group">
+<label>备注</label>
+<input type="text" id="edit-remark" placeholder="给这个商品加个备注">
+</div>
+<div class="form-group">
+<label>账号标识（QQ号等）</label>
+<input type="text" id="edit-identifier" placeholder="用于跨平台合并识别">
+</div>
+<div style="display:flex;gap:10px">
+<button class="btn btn-outline" style="flex:1" onclick="closeModal('modal-edit-listing')">取消</button>
+<button class="btn btn-primary" style="flex:1" onclick="submitEditListing()">保存</button>
+</div>
+</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="/lib/vue.global.prod.js"></script>
+<script>
+const API_BASE = '';
+let token = localStorage.getItem('token') || '';
+let currentAccountId = null;
+let currentListingId = null;
+let currentFilter = 'all';
+let currentPlatform = 'all';
+let currentOrderStatus = 'all';
+let allListings = [];
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+function api(url, options={}){
+  const headers = {'Content-Type':'application/json', ...(options.headers||{})};
+  if(token) headers['Authorization']='Bearer '+token;
+  return fetch(API_BASE+url, {...options, headers}).then(r=>{
+    if(r.status===401){token='';localStorage.removeItem('token');switchPage('login');throw new Error('未登录');}
+    return r.json();
+  });
+}
+
+function switchPage(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('.tabbar-item').forEach(t=>t.classList.remove('active'));
+  const tab=document.querySelector('.tabbar-item[data-page="'+page+'"]');
+  if(tab)tab.classList.add('active');
+  if(page==='home')loadHome();
+  if(page==='accounts')loadAccounts();
+  if(page==='listings')loadListings();
+  if(page==='orders')loadOrders();
+}
+
+function doLogin(){
+  const u=document.getElementById('login-username').value;
+  const p=document.getElementById('login-password').value;
+  const form=new URLSearchParams();form.append('username',u);form.append('password',p);
+  fetch(API_BASE+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:form})
+  .then(r=>r.json()).then(d=>{
+    if(d.access_token){token=d.access_token;localStorage.setItem('token',token);showToast('登录成功');switchPage('home');}
+    else showToast(d.detail||'登录失败');
+  }).catch(e=>showToast('登录失败'));
+}
+
+function doLogout(){token='';localStorage.removeItem('token');switchPage('login');}
+
+function loadHome(){
+  api('/api/stats/overview').then(d=>{
+    document.getElementById('stat-today-income').textContent=d.today_income;
+    document.getElementById('stat-today-orders').textContent=d.today_orders;
+    document.getElementById('stat-today-hours').textContent=d.today_hours;
+    document.getElementById('stat-total-accounts').textContent=d.total_accounts;
+    document.getElementById('stat-online-accounts').textContent=d.online_accounts;
+    document.getElementById('stat-game-accounts').textContent=d.total_game_accounts||0;
+    document.getElementById('stat-total-listings').textContent=d.total_listings;
+    document.getElementById('stat-onshelf-listings').textContent=d.on_shelf_listings;
+  }).catch(()=>{});
+}
+
+function platformName(p){return {uhaozu:'U号租',mima:'密马',xubei:'虚贝'}[p]||p;}
+function statusBadge(s){
+  if(s==='on_shelf')return '<span class="badge badge-green">上架中</span>';
+  if(s==='off_shelf')return '<span class="badge badge-gray">已下架</span>';
+  if(s==='rented')return '<span class="badge badge-red">出租中</span>';
+  if(s==='ongoing')return '<span class="badge badge-orange">进行中</span>';
+  if(s==='completed')return '<span class="badge badge-green">已完成</span>';
+  if(s==='cancelled')return '<span class="badge badge-gray">已取消</span>';
+  return '<span class="badge badge-gray">'+s+'</span>';
+}
+
+function loadAccounts(){
+  api('/api/accounts').then(list=>{
+    const c=document.getElementById('accounts-list');
+    if(!list.length){c.innerHTML='<div class="empty"><div class="icon">📋</div>暂无账号，点击上方按钮添加</div>';return;}
+    c.innerHTML=list.map(a=>`
+      <div class="card" onclick="showAccountDetail(${a.id})">
+        <div class="listing-title">
+          <span><span class="platform-tag platform-${a.platform}">${platformName(a.platform)}</span>${a.nickname||a.platform_username}</span>
+          ${a.status==='online'?'<span class="badge badge-green">在线</span>':a.status==='error'?'<span class="badge badge-red">异常</span>':'<span class="badge badge-gray">离线</span>'}
+        </div>
+        <div class="listing-meta">
+          <span>分组：${a.group_name}</span>
+          <span>自动托管：${a.auto_manage?'开':'关'}</span>
+        </div>
+        <div class="listing-meta">
+          <span>上架时间：${a.onshelf_start_time} - ${a.onshelf_end_time}</span>
+        </div>
+        ${a.error_message?`<div class="listing-meta"><span style="color:#ff4757">错误：${a.error_message.substring(0,50)}</span></div>`:''}
+      </div>
+    `).join('');
+  }).catch(()=>{});
+}
+
+function showAddAccountModal(){document.getElementById('modal-add-account').classList.add('active');}
+function closeModal(id){document.getElementById(id).classList.remove('active');}
+
+function submitAddAccount(){
+  const data={
+    platform:document.getElementById('add-platform').value,
+    platform_username:document.getElementById('add-username').value,
+    platform_password:document.getElementById('add-password').value||undefined,
+    nickname:document.getElementById('add-nickname').value||undefined,
+    group_name:document.getElementById('add-group').value||'默认分组',
+  };
+  if(!data.platform_username){showToast('请输入用户名');return;}
+  api('/api/accounts',{method:'POST',body:JSON.stringify(data)}).then(d=>{
+    if(d.id){showToast('添加成功');closeModal('modal-add-account');loadAccounts();}
+    else showToast(d.detail||'添加失败');
+  }).catch(e=>showToast('添加失败'));
+}
+
+function showAccountDetail(id){
+  currentAccountId=id;
+  api('/api/accounts/'+id).then(a=>{
+    document.getElementById('detail-title').textContent=(a.nickname||a.platform_username)+' - 详情';
+    api('/api/accounts/'+id+'/listings?page_size=200').then(ld=>{
+      const items=ld.items||[];
+      const onShelf=items.filter(i=>i.status==='on_shelf').length;
+      const rented=items.filter(i=>i.status==='rented').length;
+      document.getElementById('detail-content').innerHTML=`
+        <div class="list-item"><div class="item-info"><div class="item-title">平台</div></div><span class="platform-tag platform-${a.platform}">${platformName(a.platform)}</span></div>
+        <div class="list-item"><div class="item-info"><div class="item-title">用户名</div></div><span>${a.platform_username}</span></div>
+        <div class="list-item"><div class="item-info"><div class="item-title">分组</div></div><span>${a.group_name}</span></div>
+        <div class="list-item"><div class="item-info"><div class="item-title">自动托管</div></div><span>${a.auto_manage?'开启':'关闭'}</span></div>
+        <div class="list-item"><div class="item-info"><div class="item-title">商品总数</div></div><span>${ld.total||0}</span></div>
+        <div class="list-item"><div class="item-info"><div class="item-title">上架中</div></div><span class="badge badge-green">${onShelf}</span></div>
+        <div class="list-item"><div class="item-info"><div class="item-title">出租中</div></div><span class="badge badge-red">${rented}</span></div>
+        <div class="list-item"><div class="item-info"><div class="item-title">最后同步</div></div><span>${a.last_sync_time?new Date(a.last_sync_time).toLocaleString():'未同步'}</span></div>
+        <div style="margin-top:12px">
+          <div class="form-group"><label>Cookie / Token（用于平台认证）</label>
+          <textarea id="detail-credential" rows="3" placeholder="粘贴Cookie或Token，保存后可同步数据"></textarea></div>
+          <button class="btn btn-outline btn-sm" onclick="saveCredential()">保存凭证</button>
+        </div>
+      `;
+      document.getElementById('modal-account-detail').classList.add('active');
+    });
+  });
+}
+
+function saveCredential(){
+  const val=document.getElementById('detail-credential').value.trim();
+  if(!val){showToast('请输入凭证');return;}
+  const platform=document.getElementById('detail-title').textContent;
+  const isToken=platform.includes('密马');
+  const data=isToken?{token_data:val}:{cookie_data:val};
+  api('/api/accounts/'+currentAccountId,{method:'PUT',body:JSON.stringify(data)}).then(d=>{
+    if(d.id){showToast('凭证已保存');}
+    else showToast('保存失败');
+  });
+}
+
+function syncCurrentAccount(){
+  api('/api/accounts/'+currentAccountId+'/sync',{method:'POST'}).then(d=>{
+    showToast(d.message||'同步已启动');
+    closeModal('modal-account-detail');
+    setTimeout(loadAccounts,2000);
+  });
+}
+
+function loadListings(){
+  api('/api/accounts/listings/grouped').then(groups=>{
+    allListings=[];
+    groups.forEach(g=>g.listings.forEach(l=>allListings.push(l)));
+    renderListings();
+    // 加载平台筛选
+    const platforms=[...new Set(allListings.map(l=>{
+      // 需要从account_id获取平台，这里简化处理
+      return l.platform||'all';
+    }))];
+  }).catch(()=>{
+    document.getElementById('listings-container').innerHTML='<div class="empty"><div class="icon">🎯</div>暂无商品数据</div>';
+  });
+}
+
+function filterListings(f,el){
+  currentFilter=f;
+  document.querySelectorAll('#listing-filters .filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderListings();
+}
+
+function filterPlatform(p,el){
+  currentPlatform=p;
+  document.querySelectorAll('#platform-filters .filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderListings();
+}
+
+function renderListings(){
+  let filtered=allListings;
+  if(currentFilter!=='all')filtered=filtered.filter(l=>l.status===currentFilter);
+  // 按account_identifier分组
+  const groups={};
+  filtered.forEach(l=>{
+    const k=l.account_identifier||'未设置';
+    if(!groups[k])groups[k]=[];
+    groups[k].push(l);
+  });
+  const c=document.getElementById('listings-container');
+  if(!Object.keys(groups).length){c.innerHTML='<div class="empty"><div class="icon">🎯</div>没有符合条件的商品</div>';return;}
+  c.innerHTML=Object.entries(groups).map(([ident,items])=>{
+    const rented=items.filter(i=>i.status==='rented').length;
+    const onShelf=items.filter(i=>i.status==='on_shelf').length;
+    return `
+      <div class="group-header">
+        <span>👤 ${ident} (${items.length}个商品)</span>
+        <span>${rented>0?'<span class="badge badge-red">出租中</span>':''} ${onShelf>0?'<span class="badge badge-green">'+onShelf+'上架</span>':''}</span>
+      </div>
+      ${items.map(l=>`
+        <div class="listing-card">
+          <div class="listing-title">
+            <span style="flex:1">${l.title}</span>
+            ${statusBadge(l.status)}
+          </div>
+          <div class="listing-meta">
+            <span>💰 ${l.price_per_hour}元/时</span>
+            <span>🎮 ${l.game_name||'未知'}</span>
+            <span>⭐ ${l.rating}</span>
+          </div>
+          ${l.remark?`<div class="remark-text">📝 ${l.remark}</div>`:''}
+          <div class="listing-actions" style="margin-top:8px">
+            ${l.status==='off_shelf'?`<button class="btn btn-primary btn-sm" onclick="listingAction(${l.account_id},${l.id},'onshelf')">上架</button>`:''}
+            ${l.status==='on_shelf'?`<button class="btn btn-outline btn-sm" onclick="listingAction(${l.account_id},${l.id},'offshelf')">下架</button>`:''}
+            <button class="btn btn-outline btn-sm" onclick="showEditListing(${l.id},'${(l.remark||'').replace(/'/g,"\\'")}','${(l.account_identifier||'').replace(/'/g,"\\'")}')">编辑</button>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }).join('');
+}
+
+function listingAction(accountId,listingId,action){
+  api(`/api/accounts/${accountId}/listings/${listingId}/action`,{method:'POST',body:JSON.stringify({action})}).then(d=>{
+    showToast(d.message||(d.success?'操作成功':'操作失败'));
+    setTimeout(loadListings,1000);
+  });
+}
+
+function showEditListing(id,remark,identifier){
+  currentListingId=id;
+  document.getElementById('edit-remark').value=remark;
+  document.getElementById('edit-identifier').value=identifier;
+  document.getElementById('modal-edit-listing').classList.add('active');
+}
+
+function submitEditListing(){
+  const data={remark:document.getElementById('edit-remark').value,account_identifier:document.getElementById('edit-identifier').value};
+  // 找到对应的account_id
+  const listing=allListings.find(l=>l.id===currentListingId);
+  if(!listing){showToast('商品不存在');return;}
+  api(`/api/accounts/${listing.account_id}/listings/${currentListingId}`,{method:'PUT',body:JSON.stringify(data)}).then(d=>{
+    if(d.id){showToast('保存成功');closeModal('modal-edit-listing');setTimeout(loadListings,500);}
+    else showToast('保存失败');
+  });
+}
+
+function loadOrders(){
+  api('/api/orders?page_size=100').then(d=>{
+    let list=d.items||[];
+    if(currentOrderStatus!=='all')list=list.filter(o=>o.status===currentOrderStatus);
+    const c=document.getElementById('orders-list');
+    if(!list.length){c.innerHTML='<div class="empty"><div class="icon">📦</div>暂无订单</div>';return;}
+    c.innerHTML=list.map(o=>`
+      <div class="card">
+        <div class="listing-title">
+          <span style="flex:1">${o.listing_title||'未知商品'}</span>
+          ${statusBadge(o.status)}
+        </div>
+        <div class="listing-meta">
+          <span>👤 ${o.buyer_nickname||'匿名'}</span>
+          <span>⏱ ${o.duration_hours}小时</span>
+          <span>💰 ${o.amount}元</span>
+        </div>
+        <div class="listing-meta">
+          <span>订单号：${o.platform_order_id}</span>
+        </div>
+        <div class="listing-meta">
+          <span>${new Date(o.created_at).toLocaleString()}</span>
+        </div>
+      </div>
+    `).join('');
+  }).catch(()=>{});
+}
+
+function filterOrders(s,el){
+  currentOrderStatus=s;
+  document.querySelectorAll('#page-orders .filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  loadOrders();
+}
+
+function runConflictCheck(){
+  api('/api/accounts/conflict-check',{method:'POST'}).then(d=>{
+    if(d.success){showToast(`检测完成：发现${d.result.detected||0}个冲突，自动下架${d.result.auto_offshelfed||0}个`);}
+    else showToast(d.message||'检测失败');
+  });
+}
+
+// 初始化
+if(token){switchPage('home');}
+else{switchPage('login');}
+</script>
+</body>
+</html>
