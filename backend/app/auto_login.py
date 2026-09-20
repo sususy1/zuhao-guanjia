@@ -78,8 +78,20 @@ async def _uhaozu_login_async(username: str, password: str, progress_callback=No
         page = await context.new_page()
 
         report("打开登录页...")
-        await page.goto("https://www.uhaozu.com/user/login", wait_until="domcontentloaded")
-        await page.wait_for_timeout(3000)
+        # 重试机制：香港服务器访问国内网站可能不稳定
+        login_success = False
+        for retry in range(3):
+            try:
+                await page.goto("https://www.uhaozu.com/user/login", wait_until="commit", timeout=60000)
+                await page.wait_for_timeout(5000)
+                login_success = True
+                break
+            except Exception as e:
+                report(f"第{retry+1}次打开登录页失败: {e}，重试...")
+                await page.wait_for_timeout(3000)
+        if not login_success:
+            await browser.close()
+            raise Exception("无法打开U号租登录页（网络超时）")
 
         report("切换到账号登录...")
         tabs = await page.query_selector_all(".login-top span")
@@ -251,11 +263,18 @@ async def _uhaozu_login_async(username: str, password: str, progress_callback=No
 
         # 检查登录结果 - 访问用户中心验证会话是否真正建立
         report("验证登录状态...")
-        try:
-            await page.goto("https://www.uhaozu.com/usercenter", wait_until="domcontentloaded", timeout=15000)
-            await page.wait_for_timeout(3000)
-        except Exception as e:
-            report(f"访问用户中心超时: {e}")
+        verify_success = False
+        for retry in range(3):
+            try:
+                await page.goto("https://www.uhaozu.com/usercenter", wait_until="commit", timeout=60000)
+                await page.wait_for_timeout(5000)
+                verify_success = True
+                break
+            except Exception as e:
+                report(f"第{retry+1}次验证登录失败: {e}，重试...")
+                await page.wait_for_timeout(3000)
+        if not verify_success:
+            report("无法访问用户中心，但继续获取Cookie...")
 
         current_url = page.url
         page_text = ""
