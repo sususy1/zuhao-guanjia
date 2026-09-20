@@ -438,45 +438,60 @@ async def _xubei_login_async(username: str, password: str, progress_callback=Non
 
                 # 获取验证码图片
                 report("获取验证码图片...")
-                vcode_img = await page.query_selector("img.vcodeImg, .changeVcode img, img[src*='vcode']")
-                if not vcode_img:
-                    # 尝试通过class查找
-                    vcode_img = await page.query_selector(".vcodeImg")
+                captcha_bytes = None
 
-                if vcode_img:
-                    # 截图验证码图片
-                    captcha_bytes = await vcode_img.screenshot()
-                else:
-                    # 如果找不到图片元素，尝试通过网络请求捕获
-                    # 先刷新验证码
+                # 方式1：查找验证码图片元素
+                vcode_img = None
+                for selector in ["img.vcodeImg", ".vcodeImg img", "img[src*='vcode']", ".changeVcode img", "img[alt*='验证码']"]:
                     try:
-                        refresh_btn = await page.query_selector(".changeVcode")
-                        if refresh_btn:
-                            await refresh_btn.click()
-                            await page.wait_for_timeout(2000)
+                        vcode_img = await page.query_selector(selector)
+                        if vcode_img:
+                            report(f"找到验证码图片: {selector}")
+                            break
                     except:
                         pass
 
-                    # 截取整个页面中验证码区域（通过位置估算）
-                    # 先找验证码输入框，然后找旁边的图片
+                if vcode_img:
+                    try:
+                        captcha_bytes = await vcode_img.screenshot()
+                    except:
+                        pass
+
+                # 方式2：通过验证码输入框旁边的位置估算
+                if not captcha_bytes or len(captcha_bytes) < 100:
                     vcode_input = await page.query_selector("input.vcode")
                     if vcode_input:
                         box = await vcode_input.bounding_box()
                         if box:
-                            # 验证码图片通常在输入框右边
-                            captcha_bytes = await page.screenshot(clip={
-                                "x": box["x"] + box["width"] + 10,
-                                "y": box["y"] - 5,
-                                "width": 120,
-                                "height": box["height"] + 10
-                            })
-                        else:
-                            raise Exception("无法定位验证码图片")
-                    else:
-                        raise Exception("未找到验证码输入框")
+                            # 验证码图片通常在输入框右边，宽度约100-120px
+                            try:
+                                captcha_bytes = await page.screenshot(clip={
+                                    "x": box["x"] + box["width"] + 5,
+                                    "y": box["y"] - 2,
+                                    "width": 130,
+                                    "height": box["height"] + 4
+                                })
+                                report("通过输入框位置截取验证码")
+                            except:
+                                pass
 
-                if len(captcha_bytes) < 100:
-                    report("验证码图片太小，重试...")
+                # 方式3：查找所有图片，找尺寸合适的
+                if not captcha_bytes or len(captcha_bytes) < 100:
+                    images = await page.query_selector_all("img")
+                    for img in images:
+                        try:
+                            box = await img.bounding_box()
+                            if box and 80 < box["width"] < 150 and 30 < box["height"] < 60:
+                                src = await img.get_attribute("src") or ""
+                                if "vcode" in src or "captcha" in src or "verify" in src or not src.startswith("data:"):
+                                    captcha_bytes = await img.screenshot()
+                                    report(f"通过尺寸找到验证码图片: {box['width']}x{box['height']}")
+                                    break
+                        except:
+                            pass
+
+                if not captcha_bytes or len(captcha_bytes) < 100:
+                    report("无法获取验证码图片，重试...")
                     await page.wait_for_timeout(2000)
                     continue
 
@@ -513,19 +528,37 @@ async def _xubei_login_async(username: str, password: str, progress_callback=Non
                 if vcode_input:
                     await vcode_input.fill(vcode)
 
-                # 点击登录按钮
+                # 点击登录按钮（用JS触发，避免被遮挡）
                 report("点击登录...")
-                login_btn = await page.query_selector("input.login-btn, #login-btn, button:has-text('立即登录')")
-                if login_btn:
-                    await login_btn.click()
-                else:
-                    # 用JS触发点击
+                try:
                     await page.evaluate("""() => {
-                        const btn = document.querySelector('.login-btn') || document.querySelector('#login-btn');
-                        if (btn) btn.click();
+                        // 尝试多种方式找到并点击登录按钮
+                        const btn = document.querySelector('.login-btn') || 
+                                    document.querySelector('#login-btn') ||
+                                    document.querySelector('input[value="立即登录"]') ||
+                                    document.querySelector('button[type="submit"]');
+                        if (btn) {
+                            btn.click();
+                            return 'clicked: ' + btn.tagName + '.' + btn.className;
+                        }
+                        // 尝试触发表单提交
+                        const form = document.querySelector('form');
+                        if (form) {
+                            form.submit();
+                            return 'form submitted';
+                        }
+                        return 'button not found';
                     }""")
+                except Exception as e:
+                    report(f"JS点击异常: {e}，尝试普通点击...")
+                    try:
+                        login_btn = await page.query_selector(".login-btn, #login-btn, input[value='立即登录']")
+                        if login_btn:
+                            await login_btn.click(timeout=10000)
+                    except:
+                        pass
 
-                await page.wait_for_timeout(5000)
+                await page.wait_for_timeout(8000)
 
                 # 检查登录结果
                 current_url = page.url
