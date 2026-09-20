@@ -147,3 +147,26 @@ class PlatformInfo(BaseModel):
     icon: str
     supported: bool
     description: str
+
+
+class AutoLoginRequest(BaseModel):
+    platform: str = Field(description="平台key，如uhaozu")
+    platform_username: str = Field(description="平台账号/手机号")
+    platform_password: str = Field(description="平台密码")
+    nickname: Optional[str] = None
+    group_name: str = "默认分组"
+
+
+class AutoLoginResponse(BaseModel):
+    task_id: str
+    status: str = "pending"
+    message: str = "自动登录任务已启动"
+
+
+class AutoLoginStatusResponse(BaseModel):
+    task_id: str
+    status: str  # pending, running, success, failed
+    message: Optional[str] = None
+    account_id: Optional[int] = None
+    cookie_data: Optional[str] = None
+    progress: Optional[str] = None
