@@ -249,8 +249,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <label>分组</label>
 <input type="text" id="add-group" value="默认分组">
 </div>
+<div id="auto-login-progress" style="display:none;background:#f0f7ff;border:1px solid #d0e3ff;border-radius:8px;padding:12px;margin-bottom:12px;">
+<div style="font-size:13px;color:#1a73e8;margin-bottom:6px;">🔄 自动登录中...</div>
+<div id="auto-login-progress-text" style="font-size:12px;color:#666;line-height:1.6;">正在启动...</div>
+</div>
 <div style="display:flex;gap:10px">
 <button class="btn btn-outline" style="flex:1" onclick="closeModal('modal-add-account')">取消</button>
+<button class="btn" style="flex:1;background:#ff6d00;color:white;border:none;" id="btn-auto-login" onclick="startAutoLogin()">🚀 自动登录</button>
 <button class="btn btn-primary" style="flex:1" onclick="submitAddAccount()">确定</button>
 </div>
 </div>
@@ -403,6 +408,84 @@ function submitAddAccount(){
     if(d.id){showToast('添加成功');closeModal('modal-add-account');loadAccounts();}
     else showToast(d.detail||'添加失败');
   }).catch(e=>showToast('添加失败'));
+}
+
+let autoLoginPollTimer=null;
+function startAutoLogin(){
+  const platform=document.getElementById('add-platform').value;
+  const username=document.getElementById('add-username').value;
+  const password=document.getElementById('add-password').value;
+  const nickname=document.getElementById('add-nickname').value;
+  const groupName=document.getElementById('add-group').value||'默认分组';
+
+  if(!username){showToast('请输入平台账号');return;}
+  if(!password){showToast('请输入平台密码');return;}
+  if(platform!=='uhaozu'){showToast('目前仅U号租支持自动登录');return;}
+
+  const btn=document.getElementById('btn-auto-login');
+  btn.disabled=true;
+  btn.style.opacity='0.6';
+  document.getElementById('auto-login-progress').style.display='block';
+  document.getElementById('auto-login-progress-text').textContent='正在启动自动登录...';
+
+  api('/api/accounts/auto-login',{
+    method:'POST',
+    body:JSON.stringify({
+      platform:platform,
+      platform_username:username,
+      platform_password:password,
+      nickname:nickname||undefined,
+      group_name:groupName,
+    })
+  }).then(d=>{
+    if(d.task_id){
+      showToast('自动登录已启动，请稍候...');
+      pollAutoLoginStatus(d.task_id);
+    }else{
+      showToast(d.detail||'启动失败');
+      resetAutoLoginBtn();
+    }
+  }).catch(e=>{
+    showToast('启动失败: '+e);
+    resetAutoLoginBtn();
+  });
+}
+
+function pollAutoLoginStatus(taskId){
+  if(autoLoginPollTimer)clearInterval(autoLoginPollTimer);
+  autoLoginPollTimer=setInterval(()=>{
+    api('/api/accounts/auto-login/'+taskId).then(d=>{
+      const progressEl=document.getElementById('auto-login-progress-text');
+      if(d.progress){
+        progressEl.textContent=d.progress;
+      }
+      if(d.status==='success'){
+        clearInterval(autoLoginPollTimer);
+        progressEl.innerHTML='<span style="color:#00c853;">✅ 登录成功！正在同步数据...</span>';
+        showToast('自动登录成功！');
+        setTimeout(()=>{
+          closeModal('modal-add-account');
+          loadAccounts();
+          resetAutoLoginBtn();
+        },2000);
+      }else if(d.status==='failed'){
+        clearInterval(autoLoginPollTimer);
+        progressEl.innerHTML='<span style="color:#ff1744;">❌ 登录失败: '+(d.message||'未知错误')+'</span>';
+        showToast('自动登录失败，请检查账号密码');
+        resetAutoLoginBtn();
+      }
+    }).catch(e=>{
+      console.error('查询状态失败',e);
+    });
+  },2000);
+}
+
+function resetAutoLoginBtn(){
+  const btn=document.getElementById('btn-auto-login');
+  btn.disabled=false;
+  btn.style.opacity='1';
+  document.getElementById('auto-login-progress').style.display='none';
+  if(autoLoginPollTimer){clearInterval(autoLoginPollTimer);autoLoginPollTimer=null;}
 }
 
 function showAccountDetail(id){
