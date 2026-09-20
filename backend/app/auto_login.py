@@ -368,9 +368,13 @@ def cjy_recognize_captcha(img_bytes: bytes, codetype: str = "1004") -> Tuple[str
 
 
 def xubei_auto_login(username: str, password: str, progress_callback=None) -> Dict[str, str]:
-    """虚贝自动登录（账号密码+图形验证码），返回Cookie字典"""
-    import time
-    import requests
+    """虚贝自动登录（Playwright浏览器方式，账号密码+图形验证码），返回Cookie字典"""
+    return asyncio.run(_xubei_login_async(username, password, progress_callback))
+
+
+async def _xubei_login_async(username: str, password: str, progress_callback=None) -> Dict[str, str]:
+    """虚贝异步自动登录（Playwright浏览器方式）"""
+    from playwright.async_api import async_playwright
 
     def report(msg):
         logger.info(msg)
@@ -380,124 +384,217 @@ def xubei_auto_login(username: str, password: str, progress_callback=None) -> Di
             except:
                 pass
 
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://passport.xubei.com/",
-        "Origin": "https://passport.xubei.com",
-    })
+    async with async_playwright() as p:
+        report("启动浏览器...")
+        browser = await p.chromium.launch(
+            headless=True,
+            args=[
+                '--disable-blink-features=AutomationControlled',
+                '--no-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+            ]
+        )
+        context = await browser.new_context(
+            viewport={"width": 1280, "height": 800},
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+        # 移除webdriver标志
+        await context.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+            Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+            Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN', 'zh', 'en']});
+        """)
 
-    max_retries = 8
-    for attempt in range(max_retries):
-        try:
-            # 1. 生成验证码token和sign
-            report(f"获取验证码（第{attempt+1}次）...")
-            token = "xubei" + str(int(time.time() * 1000))
-            sign = hashlib.md5(f"xubei{token}**xubei#$".encode("utf-8")).hexdigest()
+        page = await context.new_page()
 
-            # 2. 获取验证码图片（增加超时到60秒，3次重试）
-            vcode_url = f"https://passport-server.xubei.com/login/vcode?token={token}&sign={sign}"
-            resp = None
-            for retry in range(3):
-                try:
-                    resp = session.get(vcode_url, timeout=60)
-                    if resp.status_code == 200 and len(resp.content) > 100:
-                        break
-                except Exception as e:
-                    report(f"验证码获取重试{retry+1}: {e}")
-                    time.sleep(2)
-
-            if resp is None or resp.status_code != 200 or len(resp.content) < 100:
-                report(f"验证码图片获取失败，状态码: {resp.status_code if resp else 'N/A'}")
-                time.sleep(2)
-                continue
-
-            # 3. 超级鹰识别验证码
-            report("超级鹰识别验证码...")
+        max_retries = 5
+        for attempt in range(max_retries):
             try:
-                vcode, pic_id = cjy_recognize_captcha(resp.content, codetype="1004")
-                report(f"识别结果: {vcode}")
+                report(f"打开虚贝登录页（第{attempt+1}次）...")
+                await page.goto("https://passport.xubei.com/", wait_until="commit", timeout=60000)
+                await page.wait_for_timeout(3000)
+
+                # 切换到账号密码登录
+                report("切换到账号密码登录...")
+                try:
+                    pwd_login = await page.query_selector("text=账号密码登录")
+                    if pwd_login:
+                        await pwd_login.click()
+                        await page.wait_for_timeout(2000)
+                except:
+                    pass
+
+                # 输入手机号
+                report("输入账号密码...")
+                phone_input = await page.query_selector("input.phone")
+                if phone_input:
+                    await phone_input.fill(username)
+
+                # 输入密码
+                pwd_input = await page.query_selector("input.pwd")
+                if pwd_input:
+                    await pwd_input.fill(password)
+
+                # 获取验证码图片
+                report("获取验证码图片...")
+                vcode_img = await page.query_selector("img.vcodeImg, .changeVcode img, img[src*='vcode']")
+                if not vcode_img:
+                    # 尝试通过class查找
+                    vcode_img = await page.query_selector(".vcodeImg")
+
+                if vcode_img:
+                    # 截图验证码图片
+                    captcha_bytes = await vcode_img.screenshot()
+                else:
+                    # 如果找不到图片元素，尝试通过网络请求捕获
+                    # 先刷新验证码
+                    try:
+                        refresh_btn = await page.query_selector(".changeVcode")
+                        if refresh_btn:
+                            await refresh_btn.click()
+                            await page.wait_for_timeout(2000)
+                    except:
+                        pass
+
+                    # 截取整个页面中验证码区域（通过位置估算）
+                    # 先找验证码输入框，然后找旁边的图片
+                    vcode_input = await page.query_selector("input.vcode")
+                    if vcode_input:
+                        box = await vcode_input.bounding_box()
+                        if box:
+                            # 验证码图片通常在输入框右边
+                            captcha_bytes = await page.screenshot(clip={
+                                "x": box["x"] + box["width"] + 10,
+                                "y": box["y"] - 5,
+                                "width": 120,
+                                "height": box["height"] + 10
+                            })
+                        else:
+                            raise Exception("无法定位验证码图片")
+                    else:
+                        raise Exception("未找到验证码输入框")
+
+                if len(captcha_bytes) < 100:
+                    report("验证码图片太小，重试...")
+                    await page.wait_for_timeout(2000)
+                    continue
+
+                # 超级鹰识别验证码
+                report("超级鹰识别验证码...")
+                try:
+                    vcode, pic_id = cjy_recognize_captcha(captcha_bytes, codetype="1004")
+                    report(f"识别结果: {vcode}")
+                except Exception as e:
+                    report(f"识别失败: {e}，刷新重试...")
+                    try:
+                        refresh_btn = await page.query_selector(".changeVcode")
+                        if refresh_btn:
+                            await refresh_btn.click()
+                    except:
+                        pass
+                    await page.wait_for_timeout(2000)
+                    continue
+
+                if not vcode or len(vcode) < 3:
+                    report("验证码识别结果太短，刷新重试...")
+                    try:
+                        refresh_btn = await page.query_selector(".changeVcode")
+                        if refresh_btn:
+                            await refresh_btn.click()
+                    except:
+                        pass
+                    await page.wait_for_timeout(2000)
+                    continue
+
+                # 输入验证码
+                report("输入验证码...")
+                vcode_input = await page.query_selector("input.vcode")
+                if vcode_input:
+                    await vcode_input.fill(vcode)
+
+                # 点击登录按钮
+                report("点击登录...")
+                login_btn = await page.query_selector("input.login-btn, #login-btn, button:has-text('立即登录')")
+                if login_btn:
+                    await login_btn.click()
+                else:
+                    # 用JS触发点击
+                    await page.evaluate("""() => {
+                        const btn = document.querySelector('.login-btn') || document.querySelector('#login-btn');
+                        if (btn) btn.click();
+                    }""")
+
+                await page.wait_for_timeout(5000)
+
+                # 检查登录结果
+                current_url = page.url
+                report(f"当前URL: {current_url}")
+
+                # 检查是否有错误提示
+                error_msg = ""
+                try:
+                    err_el = await page.query_selector(".err-info, .error, .message")
+                    if err_el:
+                        error_msg = await err_el.inner_text()
+                        if error_msg and len(error_msg) > 2:
+                            report(f"错误提示: {error_msg}")
+                except:
+                    pass
+
+                # 判断是否登录成功：URL变化或错误提示为空
+                is_logged_in = False
+                if 'passport.xubei.com' not in current_url and 'login' not in current_url.lower():
+                    is_logged_in = True
+                elif error_msg and ('密码' in error_msg or '账号' in error_msg or '冻结' in error_msg or '限制' in error_msg):
+                    raise Exception(f"登录失败: {error_msg}")
+                elif not error_msg or '验证码' not in error_msg:
+                    # 可能登录成功但还在跳转
+                    await page.wait_for_timeout(3000)
+                    current_url = page.url
+                    if 'passport.xubei.com' not in current_url:
+                        is_logged_in = True
+
+                if is_logged_in:
+                    report("✅ 登录成功！获取Cookie...")
+                    cookies = await context.cookies()
+                    cookie_dict = {c["name"]: c["value"] for c in cookies}
+
+                    # 确保关键Cookie存在
+                    if 'xubei_token' not in cookie_dict:
+                        # 尝试从localStorage获取
+                        try:
+                            local_data = await page.evaluate("() => JSON.stringify(window.localStorage)")
+                            import json as _json
+                            local_dict = _json.loads(local_data)
+                            for key, value in local_dict.items():
+                                if 'token' in key.lower() or 'auth' in key.lower():
+                                    cookie_dict[key] = str(value)
+                        except:
+                            pass
+
+                    await browser.close()
+                    return cookie_dict
+                else:
+                    report(f"登录未成功，刷新重试...")
+                    await page.reload(wait_until="commit", timeout=60000)
+                    await page.wait_for_timeout(2000)
+                    continue
+
             except Exception as e:
-                report(f"识别失败: {e}，重试...")
-                time.sleep(1)
+                if "密码" in str(e) or "账号" in str(e) or "冻结" in str(e) or "限制" in str(e):
+                    await browser.close()
+                    raise
+                report(f"登录异常: {e}，重试...")
+                try:
+                    await page.reload(wait_until="commit", timeout=60000)
+                except:
+                    pass
+                await page.wait_for_timeout(3000)
                 continue
 
-            if not vcode or len(vcode) < 3:
-                report("验证码识别结果太短，重试...")
-                time.sleep(1)
-                continue
-
-            # 4. 调用登录API（增加超时到60秒）
-            report("提交登录...")
-            login_url = "https://passport-server.xubei.com/login/toLogin"
-            params = {
-                "userName": username,
-                "pwd": password,
-                "vcode": vcode,
-                "token": token,
-                "ticket": "",
-            }
-            resp = session.get(login_url, params=params, timeout=60)
-            result = resp.json()
-
-            code = str(result.get("code", ""))
-            message = result.get("message", "")
-
-            if code == "1":
-                # 登录成功
-                report("✅ 登录成功！")
-                login_data = result.get("result", {})
-
-                # 构造Cookie
-                cookie_dict = {
-                    "mobile": str(login_data.get("mobile", "")),
-                    "userId": str(login_data.get("userId", "")),
-                    "xubei_token": str(login_data.get("authorization", "")),
-                    "loginToken": str(login_data.get("loginToken", "")),
-                    "refer": "passport",
-                }
-
-                # 合并session中的Cookie
-                for c in session.cookies:
-                    cookie_dict[c.name] = c.value
-
-                return cookie_dict
-
-            elif code == "403" and "图片验证失败" in message:
-                report(f"验证码错误，重试...")
-                time.sleep(1)
-                continue
-
-            elif code == "407" or "永久冻结" in message or "已限制登录" in message:
-                raise Exception(f"账号被限制: {message}")
-
-            elif code == "408":
-                raise Exception(f"登录失败: {message}（可能是密码错误）")
-
-            elif code == "0":
-                raise Exception(f"登录失败: {message}")
-
-            else:
-                report(f"登录返回 code={code}, message={message}，重试...")
-                time.sleep(2)
-                continue
-
-        except requests.exceptions.Timeout:
-            report("请求超时，重试...")
-            time.sleep(3)
-            continue
-        except requests.exceptions.ConnectionError:
-            report("连接错误，重试...")
-            time.sleep(3)
-            continue
-        except Exception as e:
-            if "账号被限制" in str(e) or "密码错误" in str(e):
-                raise
-            report(f"登录异常: {e}，重试...")
-            time.sleep(3)
-            continue
-
-    raise Exception(f"虚贝登录失败，已重试{max_retries}次（香港服务器访问虚贝可能不稳定）")
+        await browser.close()
+        raise Exception(f"虚贝登录失败，已重试{max_retries}次")
 
 
 def mima_login_with_code(phone: str, code: str, progress_callback=None) -> Dict[str, str]:
