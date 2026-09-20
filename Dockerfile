@@ -23,14 +23,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
     libatspi2.0-0 \
     fonts-liberation \
+    fonts-unifont \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装Python依赖
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
-# 安装Playwright Chromium浏览器
-RUN playwright install chromium --with-deps
+# 安装Playwright Chromium浏览器（系统依赖已在上面安装）
+RUN playwright install chromium
 
 # 复制代码
 COPY backend/ ./backend/
