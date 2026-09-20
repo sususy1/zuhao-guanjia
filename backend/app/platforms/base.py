@@ -19,11 +19,30 @@ class BasePlatformAdapter(ABC):
         })
 
     def _load_cookies(self, account: models.RentalAccount):
-        if account.cookie_data:
-            try:
-                self.session.cookies.update(json.loads(account.cookie_data))
-            except Exception:
-                pass
+        if not account.cookie_data:
+            return
+        try:
+            # 尝试JSON字典格式 {"key": "value"}
+            cookies = json.loads(account.cookie_data)
+            if isinstance(cookies, dict):
+                self.session.cookies.update(cookies)
+                return
+        except Exception:
+            pass
+        try:
+            # 尝试Cookie字符串格式 "key1=val1; key2=val2"
+            cookie_str = account.cookie_data.strip()
+            if cookie_str:
+                cookies = {}
+                for part in cookie_str.split(';'):
+                    part = part.strip()
+                    if '=' in part:
+                        k, v = part.split('=', 1)
+                        cookies[k.strip()] = v.strip()
+                if cookies:
+                    self.session.cookies.update(cookies)
+        except Exception as e:
+            logger.warning(f"加载Cookie失败: {e}")
 
     @abstractmethod
     def login(self, account: models.RentalAccount, captcha: Optional[str] = None) -> Dict[str, Any]:
