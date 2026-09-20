@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from .config import settings
 from .database import init_db, SessionLocal
 from .auth import ensure_admin_user
-from .api import auth, accounts, orders, stats, platforms
+from .api import auth, accounts, orders, stats, platforms, browser
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,6 +26,7 @@ app.include_router(accounts.router)
 app.include_router(orders.router)
 app.include_router(stats.router)
 app.include_router(platforms.router)
+app.include_router(browser.router)
 
 
 @app.on_event("startup")
