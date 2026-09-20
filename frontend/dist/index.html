@@ -331,8 +331,7 @@ function switchPage(page){
 function doLogin(){
   const u=document.getElementById('login-username').value;
   const p=document.getElementById('login-password').value;
-  const form=new URLSearchParams();form.append('username',u);form.append('password',p);
-  fetch(API_BASE+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:form})
+  fetch(API_BASE+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})})
   .then(r=>r.json()).then(d=>{
     if(d.access_token){token=d.access_token;localStorage.setItem('token',token);showToast('登录成功');switchPage('home');}
     else showToast(d.detail||'登录失败');
