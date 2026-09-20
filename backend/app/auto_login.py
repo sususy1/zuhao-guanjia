@@ -483,10 +483,99 @@ def xubei_auto_login(username: str, password: str, progress_callback=None) -> Di
     raise Exception(f"虚贝登录失败，已重试{max_retries}次")
 
 
+def mima_login_with_code(phone: str, code: str, progress_callback=None) -> Dict[str, str]:
+    """密马半自动登录（手机号+短信验证码），返回Token字典"""
+    import requests
+
+    def report(msg):
+        logger.info(msg)
+        if progress_callback:
+            try:
+                progress_callback(msg)
+            except:
+                pass
+
+    report("调用密马登录API...")
+
+    headers = {
+        "device": "2",
+        "fp": "",
+        "Referer": "https://www.mimaapp.com/",
+        "Origin": "https://www.mimaapp.com",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Content-Type": "application/json",
+    }
+
+    # 调用登录API
+    resp = requests.post(
+        "https://api.mimaapp.cn/v1/user/login",
+        headers=headers,
+        json={"phone": phone, "code": code},
+        timeout=15
+    )
+    result = resp.json()
+
+    if result.get("code") != 0:
+        raise Exception(f"密马登录失败: {result.get('msg', '未知错误')}")
+
+    # 获取Token
+    data = result.get("data", {})
+    token = data.get("token") or data.get("access_token") or data.get("jwt") or ""
+
+    if not token:
+        # 尝试从其他字段获取
+        for key in ["token", "access_token", "jwt", "authorization", "auth_token"]:
+            if key in data:
+                token = str(data[key])
+                break
+
+    if not token:
+        raise Exception(f"密马登录成功但未获取到Token，返回数据: {json.dumps(data, ensure_ascii=False)[:200]}")
+
+    report("✅ 登录成功，获取到Token")
+
+    # 返回Token字典（统一用token_data字段）
+    return {"token": token}
+
+
+def mima_send_sms(phone: str) -> Dict[str, Any]:
+    """发送密马短信验证码（可能因fp问题失败，失败时提示用户在App上获取）"""
+    import requests
+
+    headers = {
+        "device": "2",
+        "fp": "",
+        "Referer": "https://www.mimaapp.com/",
+        "Origin": "https://www.mimaapp.com",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        resp = requests.post(
+            "https://api.mimaapp.cn/v1/common/send_sms",
+            headers=headers,
+            json={"phone": phone},
+            timeout=15
+        )
+        result = resp.json()
+        if result.get("code") == 0:
+            return {"success": True, "message": "验证码已发送"}
+        else:
+            return {"success": False, "message": result.get("msg", "发送失败，请在密马App上获取验证码")}
+    except Exception as e:
+        return {"success": False, "message": f"发送失败: {e}，请在密马App上获取验证码"}
+
+
 # 平台自动登录注册表
 AUTO_LOGIN_FUNCTIONS = {
     "uhaozu": uhaozu_auto_login,
     "xubei": xubei_auto_login,
+}
+
+# 支持半自动登录的平台（需要用户输入验证码）
+SEMI_AUTO_LOGIN_PLATFORMS = {
+    "mima": mima_login_with_code,
 }
 
 
