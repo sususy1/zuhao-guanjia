@@ -335,9 +335,158 @@ def uhaozu_auto_login(username: str, password: str, progress_callback=None) -> D
     return asyncio.run(_uhaozu_login_async(username, password, progress_callback))
 
 
+def cjy_recognize_captcha(img_bytes: bytes, codetype: str = "1004") -> Tuple[str, str]:
+    """用超级鹰识别普通英文数字验证码
+    Args:
+        img_bytes: 验证码图片字节
+        codetype: 验证码类型，1004=1-4位英文数字, 1005=1-5位, 1006=1-6位
+    Returns: (识别结果, pic_id)
+    """
+    img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+    url = "https://upload.chaojiying.net/Upload/Processing.php"
+    data = urllib.parse.urlencode({
+        "user": CJY_USER,
+        "pass2": CJY_PASS_MD5,
+        "softid": CJY_SOFT_ID,
+        "codetype": codetype,
+        "len_min": "0",
+        "file_base64": img_base64,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(url, data=data, headers={
+        "User-Agent": "Mozilla/5.0",
+        "Content-Type": "application/x-www-form-urlencoded",
+    })
+
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        result = json.loads(resp.read().decode("utf-8"))
+
+    if result.get("err_no") != 0:
+        raise Exception(f"超级鹰识别失败: {result.get('err_str')}")
+
+    return result.get("pic_str", ""), result.get("pic_id", "")
+
+
+def xubei_auto_login(username: str, password: str, progress_callback=None) -> Dict[str, str]:
+    """虚贝自动登录（账号密码+图形验证码），返回Cookie字典"""
+    import time
+    import requests
+
+    def report(msg):
+        logger.info(msg)
+        if progress_callback:
+            try:
+                progress_callback(msg)
+            except:
+                pass
+
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://passport.xubei.com/",
+        "Origin": "https://passport.xubei.com",
+    })
+
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            # 1. 生成验证码token和sign
+            report(f"获取验证码（第{attempt+1}次）...")
+            token = "xubei" + str(int(time.time() * 1000))
+            sign = hashlib.md5(f"xubei{token}**xubei#$".encode("utf-8")).hexdigest()
+
+            # 2. 获取验证码图片
+            vcode_url = f"https://passport-server.xubei.com/login/vcode?token={token}&sign={sign}"
+            resp = session.get(vcode_url, timeout=15)
+            if resp.status_code != 200 or len(resp.content) < 100:
+                report(f"验证码图片获取失败，状态码: {resp.status_code}")
+                time.sleep(1)
+                continue
+
+            # 3. 超级鹰识别验证码
+            report("超级鹰识别验证码...")
+            try:
+                vcode, pic_id = cjy_recognize_captcha(resp.content, codetype="1004")
+                report(f"识别结果: {vcode}")
+            except Exception as e:
+                report(f"识别失败: {e}，重试...")
+                time.sleep(1)
+                continue
+
+            if not vcode or len(vcode) < 3:
+                report("验证码识别结果太短，重试...")
+                time.sleep(1)
+                continue
+
+            # 4. 调用登录API
+            report("提交登录...")
+            login_url = "https://passport-server.xubei.com/login/toLogin"
+            params = {
+                "userName": username,
+                "pwd": password,
+                "vcode": vcode,
+                "token": token,
+                "ticket": "",
+            }
+            resp = session.get(login_url, params=params, timeout=15)
+            result = resp.json()
+
+            code = str(result.get("code", ""))
+            message = result.get("message", "")
+
+            if code == "1":
+                # 登录成功
+                report("✅ 登录成功！")
+                login_data = result.get("result", {})
+
+                # 构造Cookie
+                cookie_dict = {
+                    "mobile": str(login_data.get("mobile", "")),
+                    "userId": str(login_data.get("userId", "")),
+                    "xubei_token": str(login_data.get("authorization", "")),
+                    "loginToken": str(login_data.get("loginToken", "")),
+                    "refer": "passport",
+                }
+
+                # 合并session中的Cookie
+                for c in session.cookies:
+                    cookie_dict[c.name] = c.value
+
+                return cookie_dict
+
+            elif code == "403" and "图片验证失败" in message:
+                report(f"验证码错误，重试...")
+                time.sleep(1)
+                continue
+
+            elif code == "407" or "永久冻结" in message or "已限制登录" in message:
+                raise Exception(f"账号被限制: {message}")
+
+            elif code == "408":
+                raise Exception(f"登录失败: {message}（可能是密码错误）")
+
+            elif code == "0":
+                raise Exception(f"登录失败: {message}")
+
+            else:
+                report(f"登录返回 code={code}, message={message}，重试...")
+                time.sleep(1)
+                continue
+
+        except Exception as e:
+            if "账号被限制" in str(e) or "密码错误" in str(e):
+                raise
+            report(f"登录异常: {e}，重试...")
+            time.sleep(2)
+            continue
+
+    raise Exception(f"虚贝登录失败，已重试{max_retries}次")
+
+
 # 平台自动登录注册表
 AUTO_LOGIN_FUNCTIONS = {
     "uhaozu": uhaozu_auto_login,
+    "xubei": xubei_auto_login,
 }
 
 
