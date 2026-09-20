@@ -2,15 +2,20 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List, Optional
-import threading, logging, json
+import threading, logging, json, uuid, time
 from datetime import datetime
 from ..database import get_db, SessionLocal
 from ..auth import get_current_user
 from .. import models, schemas
 from ..platforms.registry import get_platform_adapter, PLATFORM_REGISTRY
+from ..auto_login import supports_auto_login, do_auto_login
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/accounts", tags=["账号"])
+
+# 自动登录任务状态存储
+_auto_login_tasks = {}
+_auto_login_lock = threading.Lock()
 
 
 def _sync_account_background(account_id: int):
@@ -224,3 +229,126 @@ def run_conflict_check(db: Session = Depends(get_db), current_user: models.User 
         return {"success": True, "result": result}
     except Exception as e:
         return {"success": False, "message": str(e)}
+
+
+def _auto_login_background(task_id: str, user_id: int, platform: str,
+                            username: str, password: str, nickname: str, group_name: str):
+    """后台线程执行自动登录"""
+    db = SessionLocal()
+    try:
+        with _auto_login_lock:
+            task = _auto_login_tasks.get(task_id)
+            if task:
+                task["status"] = "running"
+                task["progress"] = "开始自动登录..."
+
+        def progress_callback(msg):
+            with _auto_login_lock:
+                task = _auto_login_tasks.get(task_id)
+                if task:
+                    task["progress"] = msg
+
+        try:
+            # 执行自动登录
+            cookies = do_auto_login(platform, username, password, progress_callback)
+            cookie_str = "; ".join([f"{k}={v}" for k, v in cookies.items()])
+
+            # 创建或更新账号
+            account = db.query(models.RentalAccount).filter(
+                models.RentalAccount.user_id == user_id,
+                models.RentalAccount.platform == platform,
+                models.RentalAccount.platform_username == username
+            ).first()
+
+            if not account:
+                account = models.RentalAccount(
+                    user_id=user_id,
+                    platform=platform,
+                    platform_username=username,
+                    platform_password=password,
+                    nickname=nickname or username,
+                    group_name=group_name,
+                    cookie_data=cookie_str,
+                    status="online",
+                )
+                db.add(account)
+            else:
+                account.cookie_data = cookie_str
+                account.platform_password = password
+                account.status = "online"
+                account.error_message = None
+
+            db.commit()
+            db.refresh(account)
+
+            # 启动同步
+            thread = threading.Thread(target=_sync_account_background, args=(account.id,), daemon=True)
+            thread.start()
+
+            with _auto_login_lock:
+                task = _auto_login_tasks.get(task_id)
+                if task:
+                    task["status"] = "success"
+                    task["account_id"] = account.id
+                    task["cookie_data"] = cookie_str[:100] + "..." if len(cookie_str) > 100 else cookie_str
+                    task["progress"] = "登录成功，开始同步数据..."
+
+            logger.info(f"自动登录成功: task={task_id}, account={account.id}")
+
+        except Exception as e:
+            logger.error(f"自动登录失败: task={task_id}, error={e}")
+            with _auto_login_lock:
+                task = _auto_login_tasks.get(task_id)
+                if task:
+                    task["status"] = "failed"
+                    task["message"] = str(e)[:500]
+                    task["progress"] = f"登录失败: {e}"
+    finally:
+        db.close()
+
+
+@router.post("/auto-login", response_model=schemas.AutoLoginResponse)
+def start_auto_login(data: schemas.AutoLoginRequest,
+                     current_user: models.User = Depends(get_current_user)):
+    """启动平台自动登录任务"""
+    if not supports_auto_login(data.platform):
+        raise HTTPException(status_code=400, detail=f"平台 {data.platform} 暂不支持自动登录")
+
+    task_id = str(uuid.uuid4())
+    with _auto_login_lock:
+        _auto_login_tasks[task_id] = {
+            "task_id": task_id,
+            "status": "pending",
+            "progress": "任务已创建，等待执行...",
+            "created_at": time.time(),
+        }
+
+    thread = threading.Thread(
+        target=_auto_login_background,
+        args=(task_id, current_user.id, data.platform,
+              data.platform_username, data.platform_password,
+              data.nickname, data.group_name),
+        daemon=True
+    )
+    thread.start()
+
+    return {"task_id": task_id, "status": "pending", "message": "自动登录任务已启动"}
+
+
+@router.get("/auto-login/{task_id}", response_model=schemas.AutoLoginStatusResponse)
+def get_auto_login_status(task_id: str, current_user: models.User = Depends(get_current_user)):
+    """查询自动登录任务状态"""
+    with _auto_login_lock:
+        task = _auto_login_tasks.get(task_id)
+
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    return {
+        "task_id": task_id,
+        "status": task.get("status", "pending"),
+        "message": task.get("message"),
+        "account_id": task.get("account_id"),
+        "cookie_data": task.get("cookie_data"),
+        "progress": task.get("progress"),
+    }
