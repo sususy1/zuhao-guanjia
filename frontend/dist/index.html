@@ -271,10 +271,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <div style="font-size:13px;color:#1a73e8;margin-bottom:6px;">🔄 登录中...</div>
 <div id="auto-login-progress-text" style="font-size:12px;color:#666;line-height:1.6;">正在启动...</div>
 </div>
-<div style="display:flex;gap:10px">
-<button class="btn btn-outline" style="flex:1" onclick="closeModal('modal-add-account')">取消</button>
-<button class="btn" style="flex:1;background:#ff6d00;color:white;border:none;" id="btn-auto-login" onclick="startAutoLogin()">🚀 自动登录</button>
-<button class="btn btn-primary" id="btn-mima-login" style="flex:1;display:none" onclick="mimaLogin()">📱 验证码登录</button>
+<div style="display:flex;gap:10px;flex-wrap:wrap;">
+<button class="btn btn-outline" style="flex:1;min-width:80px;" onclick="closeModal('modal-add-account')">取消</button>
+<button class="btn" style="flex:1;min-width:100px;background:#1a73e8;color:white;border:none;" onclick="closeModal('modal-add-account');showBrowserLoginModal()">🖥️ 浏览器登录</button>
+<button class="btn" style="flex:1;min-width:100px;background:#ff6d00;color:white;border:none;" id="btn-auto-login" onclick="startAutoLogin()">🚀 自动登录</button>
+<button class="btn btn-primary" id="btn-mima-login" style="flex:1;min-width:80px;display:none" onclick="mimaLogin()">📱 验证码登录</button>
 </div>
 </div>
 </div>
@@ -306,6 +307,39 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <div style="display:flex;gap:10px">
 <button class="btn btn-outline" style="flex:1" onclick="closeModal('modal-edit-listing')">取消</button>
 <button class="btn btn-primary" style="flex:1" onclick="submitEditListing()">保存</button>
+</div>
+</div>
+</div>
+
+<!-- 远程浏览器登录弹窗 -->
+<div class="modal-mask" id="modal-browser-login">
+<div class="modal" style="max-width:90vw;width:900px;max-height:90vh;overflow-y:auto;">
+<h3 id="browser-login-title">远程浏览器登录</h3>
+<div id="browser-platform-select" style="margin-bottom:16px;">
+<p style="font-size:13px;color:#666;margin-bottom:12px;">选择要登录的平台，系统会打开平台登录页，你自己在截图上操作登录，登录成功后点击"登录完成"按钮。</p>
+<div style="display:flex;gap:10px;flex-wrap:wrap;">
+<button class="btn btn-outline" onclick="startBrowserLogin('uhaozu')" style="flex:1;min-width:120px;">U号租</button>
+<button class="btn btn-outline" onclick="startBrowserLogin('mima')" style="flex:1;min-width:120px;">密马</button>
+<button class="btn btn-outline" onclick="startBrowserLogin('xubei')" style="flex:1;min-width:120px;">虚贝</button>
+</div>
+</div>
+<div id="browser-session-area" style="display:none;">
+<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
+<input type="text" id="browser-input-text" placeholder="输入文字后按回车" style="flex:1;min-width:150px;padding:8px;border:1px solid #ddd;border-radius:6px;" onkeydown="if(event.key==='Enter')browserTypeText()">
+<button class="btn btn-outline" style="padding:8px 12px;" onclick="browserTypeText()">输入</button>
+<button class="btn btn-outline" style="padding:8px 12px;" onclick="browserPressKey('Backspace')">⌫</button>
+<button class="btn btn-outline" style="padding:8px 12px;" onclick="browserPressKey('Enter')">⏎</button>
+<button class="btn btn-outline" style="padding:8px 12px;" onclick="browserRefresh()">🔄刷新</button>
+</div>
+<div style="border:2px solid #e0e0e0;border-radius:8px;overflow:hidden;background:#f5f5f5;cursor:crosshair;position:relative;" id="browser-image-container">
+<img id="browser-screenshot" src="" style="width:100%;display:block;pointer-events:none;" alt="登录页截图">
+<div id="browser-loading" style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.8);display:flex;align-items:center;justify-content:center;font-size:14px;color:#666;">加载中...</div>
+</div>
+<div style="font-size:12px;color:#999;margin-top:8px;">💡 点击截图上的位置可以点击，在上方输入框输入文字后按回车可以输入</div>
+<div style="display:flex;gap:10px;margin-top:16px;">
+<button class="btn btn-outline" style="flex:1" onclick="closeBrowserSession()">取消</button>
+<button class="btn" style="flex:1;background:#00c853;color:white;border:none;" onclick="confirmBrowserLogin()">✅ 登录完成</button>
+</div>
 </div>
 </div>
 </div>
@@ -812,6 +846,164 @@ function runConflictCheck(){
     if(d.success){showToast(`检测完成：发现${d.result.detected||0}个冲突，自动下架${d.result.auto_offshelfed||0}个`);}
     else showToast(d.message||'检测失败');
   });
+}
+
+// ========== 远程浏览器登录 ==========
+let browserSessionId=null;
+let browserPlatform=null;
+
+function showBrowserLoginModal(){
+  document.getElementById('modal-browser-login').classList.add('active');
+  document.getElementById('browser-platform-select').style.display='block';
+  document.getElementById('browser-session-area').style.display='none';
+}
+
+function startBrowserLogin(platform){
+  browserPlatform=platform;
+  const platformNames={uhaozu:'U号租',mima:'密马',xubei:'虚贝'};
+  document.getElementById('browser-login-title').textContent='远程登录 - '+platformNames[platform];
+  document.getElementById('browser-platform-select').style.display='none';
+  document.getElementById('browser-session-area').style.display='block';
+  showBrowserLoading('正在打开登录页...');
+
+  api('/api/browser/session',{method:'POST',body:JSON.stringify({platform:platform})}).then(d=>{
+    if(d.session_id){
+      browserSessionId=d.session_id;
+      updateBrowserScreenshot(d.screenshot);
+      hideBrowserLoading();
+      // 绑定点击事件
+      const img=document.getElementById('browser-screenshot');
+      img.onclick=browserImageClick;
+      showToast('登录页已打开，请在截图上操作登录');
+    }else{
+      showBrowserLoading('打开失败: '+(d.detail||'未知错误'));
+      setTimeout(()=>{
+        document.getElementById('browser-platform-select').style.display='block';
+        document.getElementById('browser-session-area').style.display='none';
+      },2000);
+    }
+  }).catch(e=>{
+    showBrowserLoading('打开失败: '+e);
+    setTimeout(()=>{
+      document.getElementById('browser-platform-select').style.display='block';
+      document.getElementById('browser-session-area').style.display='none';
+    },2000);
+  });
+}
+
+function browserImageClick(e){
+  if(!browserSessionId)return;
+  const img=document.getElementById('browser-screenshot');
+  const rect=img.getBoundingClientRect();
+  const scaleX=img.naturalWidth/rect.width;
+  const scaleY=img.naturalHeight/rect.height;
+  const x=Math.round((e.clientX-rect.left)*scaleX);
+  const y=Math.round((e.clientY-rect.top)*scaleY);
+
+  showBrowserLoading('点击中...');
+  api('/api/browser/session/'+browserSessionId+'/click',{
+    method:'POST',body:JSON.stringify({x:x,y:y})
+  }).then(d=>{
+    if(d.screenshot){
+      updateBrowserScreenshot(d.screenshot);
+    }
+    hideBrowserLoading();
+  }).catch(e=>{
+    hideBrowserLoading();
+    showToast('点击失败: '+e);
+  });
+}
+
+function browserTypeText(){
+  if(!browserSessionId)return;
+  const text=document.getElementById('browser-input-text').value;
+  if(!text){showToast('请输入文字');return;}
+  showBrowserLoading('输入中...');
+  api('/api/browser/session/'+browserSessionId+'/type',{
+    method:'POST',body:JSON.stringify({text:text})
+  }).then(d=>{
+    if(d.screenshot){updateBrowserScreenshot(d.screenshot);}
+    document.getElementById('browser-input-text').value='';
+    hideBrowserLoading();
+  }).catch(e=>{
+    hideBrowserLoading();
+    showToast('输入失败: '+e);
+  });
+}
+
+function browserPressKey(key){
+  if(!browserSessionId)return;
+  showBrowserLoading('按键中...');
+  api('/api/browser/session/'+browserSessionId+'/press-key',{
+    method:'POST',body:JSON.stringify({key:key})
+  }).then(d=>{
+    if(d.screenshot){updateBrowserScreenshot(d.screenshot);}
+    hideBrowserLoading();
+  }).catch(e=>{
+    hideBrowserLoading();
+    showToast('按键失败: '+e);
+  });
+}
+
+function browserRefresh(){
+  if(!browserSessionId)return;
+  showBrowserLoading('刷新中...');
+  api('/api/browser/session/'+browserSessionId+'/screenshot').then(d=>{
+    if(d.screenshot){updateBrowserScreenshot(d.screenshot);}
+    hideBrowserLoading();
+  }).catch(e=>{
+    hideBrowserLoading();
+    showToast('刷新失败: '+e);
+  });
+}
+
+function confirmBrowserLogin(){
+  if(!browserSessionId)return;
+  if(!confirm('确认已经登录成功了吗？确认后系统会自动保存登录凭证并开始同步数据。'))return;
+
+  showBrowserLoading('保存登录凭证...');
+  api('/api/browser/session/'+browserSessionId+'/confirm-login',{
+    method:'POST',body:JSON.stringify({
+      nickname:browserPlatform+'账号',
+      group_name:'默认分组'
+    })
+  }).then(d=>{
+    if(d.success){
+      showToast('登录成功！已开始同步数据');
+      closeModal('modal-browser-login');
+      loadAccounts();
+      browserSessionId=null;
+    }else{
+      hideBrowserLoading();
+      showToast(d.detail||'保存失败');
+    }
+  }).catch(e=>{
+    hideBrowserLoading();
+    showToast('保存失败: '+e);
+  });
+}
+
+function closeBrowserSession(){
+  if(browserSessionId){
+    api('/api/browser/session/'+browserSessionId,{method:'DELETE'}).catch(()=>{});
+    browserSessionId=null;
+  }
+  closeModal('modal-browser-login');
+}
+
+function updateBrowserScreenshot(base64){
+  const img=document.getElementById('browser-screenshot');
+  img.src='data:image/png;base64,'+base64;
+}
+
+function showBrowserLoading(text){
+  const el=document.getElementById('browser-loading');
+  el.textContent=text||'加载中...';
+  el.style.display='flex';
+}
+
+function hideBrowserLoading(){
+  document.getElementById('browser-loading').style.display='none';
 }
 
 // 初始化
