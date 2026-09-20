@@ -387,7 +387,7 @@ def xubei_auto_login(username: str, password: str, progress_callback=None) -> Di
         "Origin": "https://passport.xubei.com",
     })
 
-    max_retries = 5
+    max_retries = 8
     for attempt in range(max_retries):
         try:
             # 1. 生成验证码token和sign
@@ -395,12 +395,21 @@ def xubei_auto_login(username: str, password: str, progress_callback=None) -> Di
             token = "xubei" + str(int(time.time() * 1000))
             sign = hashlib.md5(f"xubei{token}**xubei#$".encode("utf-8")).hexdigest()
 
-            # 2. 获取验证码图片
+            # 2. 获取验证码图片（增加超时到60秒，3次重试）
             vcode_url = f"https://passport-server.xubei.com/login/vcode?token={token}&sign={sign}"
-            resp = session.get(vcode_url, timeout=15)
-            if resp.status_code != 200 or len(resp.content) < 100:
-                report(f"验证码图片获取失败，状态码: {resp.status_code}")
-                time.sleep(1)
+            resp = None
+            for retry in range(3):
+                try:
+                    resp = session.get(vcode_url, timeout=60)
+                    if resp.status_code == 200 and len(resp.content) > 100:
+                        break
+                except Exception as e:
+                    report(f"验证码获取重试{retry+1}: {e}")
+                    time.sleep(2)
+
+            if resp is None or resp.status_code != 200 or len(resp.content) < 100:
+                report(f"验证码图片获取失败，状态码: {resp.status_code if resp else 'N/A'}")
+                time.sleep(2)
                 continue
 
             # 3. 超级鹰识别验证码
@@ -418,7 +427,7 @@ def xubei_auto_login(username: str, password: str, progress_callback=None) -> Di
                 time.sleep(1)
                 continue
 
-            # 4. 调用登录API
+            # 4. 调用登录API（增加超时到60秒）
             report("提交登录...")
             login_url = "https://passport-server.xubei.com/login/toLogin"
             params = {
@@ -428,7 +437,7 @@ def xubei_auto_login(username: str, password: str, progress_callback=None) -> Di
                 "token": token,
                 "ticket": "",
             }
-            resp = session.get(login_url, params=params, timeout=15)
+            resp = session.get(login_url, params=params, timeout=60)
             result = resp.json()
 
             code = str(result.get("code", ""))
@@ -470,17 +479,25 @@ def xubei_auto_login(username: str, password: str, progress_callback=None) -> Di
 
             else:
                 report(f"登录返回 code={code}, message={message}，重试...")
-                time.sleep(1)
+                time.sleep(2)
                 continue
 
+        except requests.exceptions.Timeout:
+            report("请求超时，重试...")
+            time.sleep(3)
+            continue
+        except requests.exceptions.ConnectionError:
+            report("连接错误，重试...")
+            time.sleep(3)
+            continue
         except Exception as e:
             if "账号被限制" in str(e) or "密码错误" in str(e):
                 raise
             report(f"登录异常: {e}，重试...")
-            time.sleep(2)
+            time.sleep(3)
             continue
 
-    raise Exception(f"虚贝登录失败，已重试{max_retries}次")
+    raise Exception(f"虚贝登录失败，已重试{max_retries}次（香港服务器访问虚贝可能不稳定）")
 
 
 def mima_login_with_code(phone: str, code: str, progress_callback=None) -> Dict[str, str]:
