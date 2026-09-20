@@ -247,15 +247,35 @@ async def _uhaozu_login_async(username: str, password: str, progress_callback=No
                         pass
                     await page.wait_for_timeout(2000)
 
-        await page.wait_for_timeout(3000)
+        await page.wait_for_timeout(5000)
 
-        # 检查登录结果
+        # 检查登录结果 - 访问用户中心验证会话是否真正建立
+        report("验证登录状态...")
+        try:
+            await page.goto("https://www.uhaozu.com/usercenter", wait_until="domcontentloaded", timeout=15000)
+            await page.wait_for_timeout(3000)
+        except Exception as e:
+            report(f"访问用户中心超时: {e}")
+
         current_url = page.url
-        if "login" in current_url:
-            await browser.close()
-            raise Exception("登录失败，可能账号密码错误")
+        page_text = ""
+        try:
+            page_text = await page.inner_text("body")
+        except:
+            pass
 
-        report("登录成功，获取Cookie...")
+        # 判断是否真正登录成功：URL不含login，且页面包含用户中心相关文字
+        is_logged_in = ("login" not in current_url.lower()) and (
+            "退出" in page_text or "用户中心" in page_text or "我的" in page_text or "账号" in page_text
+        )
+
+        if not is_logged_in:
+            report(f"登录验证失败，当前URL: {current_url}")
+            report(f"页面内容前200字: {page_text[:200]}")
+            await browser.close()
+            raise Exception("登录失败，会话未建立（可能被风控拦截）")
+
+        report("登录验证通过，获取Cookie...")
         cookies = await context.cookies()
         cookie_dict = {c["name"]: c["value"] for c in cookies}
 
