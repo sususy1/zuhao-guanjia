@@ -10,7 +10,7 @@ import hashlib
 import urllib.request
 import urllib.parse
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any
 
 logger = logging.getLogger(__name__)
 
