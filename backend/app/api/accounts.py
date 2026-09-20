@@ -8,7 +8,7 @@ from ..database import get_db, SessionLocal
 from ..auth import get_current_user
 from .. import models, schemas
 from ..platforms.registry import get_platform_adapter, PLATFORM_REGISTRY
-from ..auto_login import supports_auto_login, do_auto_login
+from ..auto_login import supports_auto_login, do_auto_login, mima_login_with_code, mima_send_sms
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/accounts", tags=["账号"])
@@ -352,3 +352,75 @@ def get_auto_login_status(task_id: str, current_user: models.User = Depends(get_
         "cookie_data": task.get("cookie_data"),
         "progress": task.get("progress"),
     }
+
+
+@router.post("/mima-send-sms")
+def mima_send_sms_code(data: dict, current_user: models.User = Depends(get_current_user)):
+    """发送密马短信验证码"""
+    phone = data.get("phone", "")
+    if not phone:
+        raise HTTPException(status_code=400, detail="手机号不能为空")
+    result = mima_send_sms(phone)
+    return result
+
+
+@router.post("/mima-login")
+def mima_login(data: dict, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """密马半自动登录（手机号+短信验证码）"""
+    phone = data.get("phone", "")
+    code = data.get("code", "")
+    nickname = data.get("nickname", "")
+    group_name = data.get("group_name", "默认分组")
+
+    if not phone or not code:
+        raise HTTPException(status_code=400, detail="手机号和验证码不能为空")
+
+    try:
+        # 执行登录
+        token_data = mima_login_with_code(phone, code)
+        token = token_data.get("token", "")
+
+        if not token:
+            raise HTTPException(status_code=500, detail="登录成功但未获取到Token")
+
+        # 创建或更新账号
+        account = db.query(models.RentalAccount).filter(
+            models.RentalAccount.user_id == current_user.id,
+            models.RentalAccount.platform == "mima",
+            models.RentalAccount.platform_username == phone
+        ).first()
+
+        if not account:
+            account = models.RentalAccount(
+                user_id=current_user.id,
+                platform="mima",
+                platform_username=phone,
+                platform_password="",  # 密马是验证码登录，没有密码
+                nickname=nickname or phone,
+                group_name=group_name,
+                token_data=token,
+                status="online",
+            )
+            db.add(account)
+        else:
+            account.token_data = token
+            account.status = "online"
+            account.error_message = None
+
+        db.commit()
+        db.refresh(account)
+
+        # 启动同步
+        thread = threading.Thread(target=_sync_account_background, args=(account.id,), daemon=True)
+        thread.start()
+
+        return {
+            "success": True,
+            "message": "登录成功",
+            "account_id": account.id,
+            "token": token[:50] + "..." if len(token) > 50 else token,
+        }
+
+    except Exception as e:
+        logger.error(f"密马登录失败: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
