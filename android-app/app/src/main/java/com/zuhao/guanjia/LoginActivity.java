@@ -54,6 +54,7 @@ public class LoginActivity extends AppCompatActivity {
     private TextView tvTitle;
     private String platform;
     private String loginUrl;
+    private String authToken = "";
     private boolean isSaving = false;
 
     @Override
@@ -63,6 +64,7 @@ public class LoginActivity extends AppCompatActivity {
 
         platform = getIntent().getStringExtra("platform");
         loginUrl = PLATFORM_URLS.get(platform);
+        authToken = getIntent().getStringExtra("auth_token") != null ? getIntent().getStringExtra("auth_token") : "";
 
         if (loginUrl == null) {
             Toast.makeText(this, "不支持的平台", Toast.LENGTH_SHORT).show();
@@ -182,6 +184,9 @@ public class LoginActivity extends AppCompatActivity {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
+                if (authToken != null && !authToken.isEmpty()) {
+                    conn.setRequestProperty("Authorization", "Bearer " + authToken);
+                }
                 conn.setDoOutput(true);
                 conn.setConnectTimeout(30000);
                 conn.setReadTimeout(30000);
