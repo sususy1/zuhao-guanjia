@@ -2,1042 +2,1164 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1677ff">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#667eea">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="租号管家">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="/manifest.json">
-<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <title>租号管家</title>
+<script src="lib/vue.global.prod.js"></script>
+<script src="lib/echarts.min.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f6fa;color:#333;font-size:14px;min-height:100vh;padding-bottom:60px}
-.page{display:none;min-height:100vh}
-.page.active{display:block}
-.header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:16px;position:sticky;top:0;z-index:100}
-.header h1{font-size:18px;font-weight:600}
-.header .sub{font-size:12px;opacity:.8;margin-top:2px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f6fa;font-size:14px;color:#323233}
+#app{min-height:100vh;padding-bottom:60px}
+.page-header{background:linear-gradient(135deg,#1989fa,#07c160);color:#fff;padding:20px 16px 24px}
+.page-header .title{font-size:20px;font-weight:600;margin-bottom:4px}
+.page-header .subtitle{font-size:13px;opacity:.85}
 .card{background:#fff;border-radius:12px;margin:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
 .card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
-.btn{display:inline-block;padding:8px 16px;border-radius:8px;border:none;font-size:14px;cursor:pointer;text-align:center;transition:all .2s}
-.btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
-.btn-primary:active{transform:scale(.97)}
-.btn-outline{background:#fff;color:#667eea;border:1px solid #667eea}
-.btn-danger{background:#ff4757;color:#fff}
-.btn-sm{padding:5px 12px;font-size:12px}
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.stat-item{background:#f7f8fa;border-radius:10px;padding:14px;text-align:center}
+.stat-item .v{font-size:22px;font-weight:700;margin-bottom:4px}
+.stat-item .l{font-size:12px;color:#969799}
+.stat-item.primary .v{color:#1989fa}.stat-item.success .v{color:#07c160}
+.stat-item.warning .v{color:#ff976a}.stat-item.danger .v{color:#ee0a24}
+.status-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.status-tag.online{background:#e8f7ee;color:#07c160}
+.status-tag.offline{background:#f2f3f5;color:#969799}
+.status-tag.error{background:#fef0f0;color:#ee0a24}
+.status-tag.on_shelf{background:#e8f7ee;color:#07c160}
+.status-tag.off_shelf{background:#f2f3f5;color:#969799}
+.status-tag.rented{background:#e8f3ff;color:#1989fa}
+.status-tag.completed{background:#e8f7ee;color:#07c160}
+.status-tag.ongoing{background:#e8f3ff;color:#1989fa}
+.status-tag.pending{background:#fff7e8;color:#ff976a}
+.status-tag.cancelled{background:#f2f3f5;color:#969799}
+.status-tag.abnormal{background:#fef0f0;color:#ee0a24}
+.account-card{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.account-card .acct-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.account-card .acct-name{font-size:15px;font-weight:600}
+.account-card .acct-user{font-size:12px;color:#969799;margin-bottom:8px}
+.account-card .acct-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.account-card .acct-meta span{font-size:11px;color:#969799;background:#f7f8fa;padding:2px 6px;border-radius:4px}
+.account-card .acct-actions{display:flex;gap:8px}
+.order-card{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.order-card .order-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #f2f3f5}
+.order-card .order-title{font-size:14px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:10px}
+.order-card .order-row{display:flex;justify-content:space-between;padding:3px 0;font-size:13px}
+.order-card .order-row .label{color:#969799}
+.order-card .order-row .income{color:#07c160;font-weight:600}
+.order-card .order-id{margin-top:8px;font-size:11px;color:#c8c9cc}
+.order-card .flag{margin-top:8px;padding:6px 10px;background:#fef0f0;color:#ee0a24;border-radius:6px;font-size:12px}
+.listing-item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f2f3f5}
+.listing-item:last-child{border-bottom:none}
+.listing-item .li-info{flex:1;min-width:0}
+.listing-item .li-title{font-size:14px;font-weight:500;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.listing-item .li-meta{font-size:11px;color:#969799;display:flex;gap:8px;flex-wrap:wrap}
+.listing-item .li-account{font-size:11px;color:#1989fa;background:#e8f3ff;padding:2px 8px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-top:4px}
+.listing-item .li-account:hover{background:#d0e8ff}
+.listing-item .li-conflict{font-size:11px;color:#ee0a24;background:#fef0f0;padding:2px 8px;border-radius:4px;margin-top:4px;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.listing-item .li-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;margin-left:10px}
+.quick-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.quick-actions .qa-item{text-align:center;padding:12px 4px;background:#f7f8fa;border-radius:8px;cursor:pointer}
+.quick-actions .qa-item:active{transform:scale(.95)}
+.quick-actions .qa-icon{font-size:28px;margin-bottom:6px}
+.quick-actions .qa-text{font-size:12px}
+.empty-state{text-align:center;padding:60px 20px;color:#969799;font-size:14px}
+.empty-state .icon{font-size:48px;margin-bottom:12px}
+.login-page{min-height:100vh;background:linear-gradient(180deg,#1989fa 0%,#f5f6fa 40%);padding:60px 0 40px}
+.login-header{text-align:center;color:#fff;margin-bottom:40px}
+.login-header .logo{font-size:64px;margin-bottom:16px}
+.login-header h1{font-size:24px;font-weight:700;margin-bottom:8px}
+.login-header p{font-size:14px;opacity:.85}
+.login-btn{margin:24px 16px 0}
+.login-tip{text-align:center;margin-top:24px;color:#969799;font-size:12px;line-height:1.8}
+.chart-container{width:100%;height:220px}
+.avg-row{display:flex;justify-content:space-around;margin-top:16px;padding-top:16px;border-top:1px solid #f2f3f5}
+.avg-row .avg-item{text-align:center}
+.avg-row .avg-label{font-size:12px;color:#969799;margin-bottom:4px;display:block}
+.avg-row .avg-value{font-size:16px;font-weight:600}
+.user-card{display:flex;align-items:center;gap:14px;margin-top:-16px}
+.user-card .avatar{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1989fa,#07c160);display:flex;align-items:center;justify-content:center;font-size:28px}
+.user-card .uname{font-size:18px;font-weight:600;margin-bottom:4px}
+.user-card .urole{font-size:12px;opacity:.85}
+.platform-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.platform-grid .pg-item{text-align:center;padding:10px 4px;background:#f7f8fa;border-radius:8px}
+.platform-grid .pg-icon{font-size:28px;margin-bottom:4px}
+.platform-grid .pg-name{font-size:12px;margin-bottom:4px}
+.tabbar{position:fixed;bottom:0;left:0;right:0;height:60px;background:#fff;display:flex;border-top:1px solid #ebedf0;z-index:999}
+.tabbar-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:6px 0}
+.tabbar-item.active{color:#1989fa}
+.tabbar-item:not(.active){color:#969799}
+.tabbar-icon{font-size:22px;margin-bottom:2px}
+.tabbar-text{font-size:11px}
+.fab-btn{position:fixed;right:20px;bottom:80px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1989fa,#07c160);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 4px 12px rgba(25,137,250,.4);cursor:pointer;z-index:998}
+.fab-btn:active{transform:scale(.92)}
+.modal-mask{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:flex-end}
+.modal-box{background:#fff;width:100%;border-radius:16px 16px 0 0;max-height:85vh;overflow-y:auto}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid #ebedf0;font-size:16px;font-weight:600}
+.modal-close{font-size:22px;color:#969799;cursor:pointer;padding:0 8px}
+.btn{display:inline-block;padding:10px 20px;border-radius:8px;font-size:14px;text-align:center;cursor:pointer;border:none;outline:none}
+.btn-primary{background:#1989fa;color:#fff}
+.btn-success{background:#07c160;color:#fff}
+.btn-warning{background:#ff976a;color:#fff}
+.btn-danger{background:#ee0a24;color:#fff}
+.btn-plain{background:transparent;border:1px solid currentColor}
 .btn-block{display:block;width:100%}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.stat-box{text-align:center;padding:12px 8px}
-.stat-box .num{font-size:22px;font-weight:700;color:#667eea}
-.stat-box .label{font-size:11px;color:#999;margin-top:4px}
-.stat-box .num.green{color:#2ed573}
-.stat-box .num.orange{color:#ffa502}
-.stat-box .num.red{color:#ff4757}
-.form-group{margin-bottom:14px}
-.form-group label{display:block;font-size:13px;color:#666;margin-bottom:6px}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;outline:none;transition:border-color .2s}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#667eea}
-.list-item{padding:12px 0;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center}
-.list-item:last-child{border-bottom:none}
-.item-info{flex:1}
-.item-title{font-size:14px;font-weight:500;margin-bottom:4px}
-.item-desc{font-size:12px;color:#999}
-.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
-.badge-green{background:#e8f8f0;color:#2ed573}
-.badge-red{background:#ffe8e8;color:#ff4757}
-.badge-orange{background:#fff5e6;color:#ffa502}
-.badge-gray{background:#f0f0f0;color:#999}
-.badge-blue{background:#e8f0fe;color:#667eea}
-.tabbar{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;box-shadow:0 -2px 10px rgba(0,0,0,.05);z-index:100}
-.tabbar-item{flex:1;text-align:center;padding:8px 0;font-size:11px;color:#999;cursor:pointer}
-.tabbar-item.active{color:#667eea}
-.tabbar-item .icon{font-size:20px;display:block;margin-bottom:2px}
-.empty{text-align:center;padding:40px 20px;color:#999}
-.empty .icon{font-size:48px;margin-bottom:12px}
-.filter-bar{display:flex;gap:8px;padding:10px 12px;overflow-x:auto;white-space:nowrap;background:#fff;border-bottom:1px solid #f0f0f0}
-.filter-chip{padding:5px 12px;border-radius:16px;background:#f0f0f0;color:#666;font-size:12px;cursor:pointer;flex-shrink:0}
-.filter-chip.active{background:#667eea;color:#fff}
-.group-header{background:#f8f9fc;padding:10px 16px;font-size:13px;font-weight:600;color:#667eea;display:flex;justify-content:space-between;align-items:center}
-.listing-card{background:#fff;margin:8px 12px;padding:12px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
-.listing-title{font-size:14px;font-weight:500;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start}
-.listing-meta{display:flex;gap:12px;font-size:12px;color:#999;margin-bottom:8px}
-.listing-actions{display:flex;gap:8px}
-.remark-text{font-size:12px;color:#ffa502;background:#fff5e6;padding:4px 8px;border-radius:4px;margin-top:6px;display:inline-block}
-.login-page{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:30px}
-.login-logo{text-align:center;margin-bottom:30px}
-.login-logo .icon{font-size:64px}
-.login-logo h1{color:#fff;font-size:24px;margin-top:12px}
-.login-logo p{color:rgba(255,255,255,.7);font-size:13px;margin-top:6px}
-.login-box{background:#fff;border-radius:16px;padding:24px}
-.login-box .btn{margin-top:8px}
-.modal-mask{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:200;display:none;justify-content:center;align-items:center}
-.modal-mask.active{display:flex}
-.modal{background:#fff;border-radius:12px;width:90%;max-width:400px;max-height:80vh;overflow-y:auto;padding:20px}
-.modal h3{font-size:16px;margin-bottom:16px}
-.toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.8);color:#fff;padding:12px 24px;border-radius:8px;font-size:14px;z-index:300;display:none}
-.toast.show{display:block}
-.platform-tag{font-size:11px;padding:1px 6px;border-radius:4px;margin-right:6px}
-.platform-uhaozu{background:#e3f2fd;color:#1976d2}
-.platform-mima{background:#fce4ec;color:#c2185b}
-.platform-xubei{background:#e8f5e9;color:#388e3c}
+.btn-mini{padding:4px 12px;font-size:12px;border-radius:6px}
+.form-input{width:100%;padding:12px;border:1px solid #ebedf0;border-radius:8px;font-size:14px;outline:none;background:#f7f8fa}
+.form-input:focus{border-color:#1989fa;background:#fff}
+.clickable{cursor:pointer}
+.clickable:active{opacity:.8}
+.group-card{background:#fff;border-radius:12px;margin:12px;padding:0;box-shadow:0 2px 8px rgba(0,0,0,.04);overflow:hidden}
+.group-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;cursor:pointer}
+.group-head:active{background:#f7f8fa}
+.group-head .gh-left{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.group-head .gh-account{font-size:15px;font-weight:600}
+.group-head .gh-meta{font-size:11px;color:#969799;margin-top:2px}
+.group-head .gh-right{display:flex;align-items:center;gap:8px}
+.group-head .gh-arrow{font-size:18px;color:#969799;transition:transform .2s}
+.group-head .gh-arrow.open{transform:rotate(90deg)}
+.group-body{border-top:1px solid #f2f3f5;padding:0 16px}
+.group-platform-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;margin-right:6px}
+.group-platform-tag.mima{background:#fff0e6;color:#ff976a}
+.group-platform-tag.uhaozu{background:#e8f3ff;color:#1989fa}
+.group-conflict-badge{font-size:11px;color:#ee0a24;background:#fef0f0;padding:2px 8px;border-radius:4px;animation:pulse 1.5s infinite}
+.filter-section{background:#fff;margin:0 12px 12px;border-radius:12px;padding:12px 16px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.filter-row{display:flex;align-items:center;margin-bottom:8px}
+.filter-row:last-child{margin-bottom:0}
+.filter-label{font-size:13px;color:#646566;width:50px;flex-shrink:0}
+.filter-chips{display:flex;flex-wrap:wrap;gap:6px;flex:1}
+.filter-chip-item{padding:4px 12px;border-radius:16px;font-size:12px;background:#f2f3f5;color:#646566;cursor:pointer;white-space:nowrap}
+.filter-chip-item.active{background:#1989fa;color:#fff}
+.filter-chip-item:active{opacity:.8}
 </style>
 </head>
 <body>
-
-<!-- 登录页 -->
-<div id="page-login" class="page active login-page">
-<div class="login-logo">
-<div class="icon">🎮</div>
-<h1>租号管家</h1>
-<p>多平台租号自动上下架管理</p>
-</div>
-<div class="login-box">
-<div class="form-group">
-<label>用户名</label>
-<input type="text" id="login-username" placeholder="请输入用户名" value="admin">
-</div>
-<div class="form-group">
-<label>密码</label>
-<input type="password" id="login-password" placeholder="请输入密码" value="admin123">
-</div>
-<button class="btn btn-primary btn-block" onclick="doLogin()">登 录</button>
-</div>
-</div>
-
-<!-- 首页 -->
-<div id="page-home" class="page">
-<div class="header">
-<h1>租号管家</h1>
-<div class="sub">多平台自动上下架 · 智能托管</div>
-</div>
-<div class="card">
-<div class="card-title">今日概览</div>
-<div class="grid-3">
-<div class="stat-box"><div class="num green" id="stat-today-income">0</div><div class="label">今日收益(元)</div></div>
-<div class="stat-box"><div class="num" id="stat-today-orders">0</div><div class="label">今日订单</div></div>
-<div class="stat-box"><div class="num orange" id="stat-today-hours">0</div><div class="label">出租时长(h)</div></div>
-</div>
-</div>
-<div class="card">
-<div class="card-title">账号状态</div>
-<div class="grid-3">
-<div class="stat-box"><div class="num" id="stat-total-accounts">0</div><div class="label">平台账号</div></div>
-<div class="stat-box"><div class="num green" id="stat-online-accounts">0</div><div class="label">在线</div></div>
-<div class="stat-box"><div class="num blue" id="stat-game-accounts">0</div><div class="label">游戏账号</div></div>
-</div>
-</div>
-<div class="card">
-<div class="card-title">商品状态</div>
-<div class="grid-3">
-<div class="stat-box"><div class="num" id="stat-total-listings">0</div><div class="label">商品总数</div></div>
-<div class="stat-box"><div class="num green" id="stat-onshelf-listings">0</div><div class="label">上架中</div></div>
-<div class="stat-box"><div class="num red" id="stat-rented-listings">0</div><div class="label">出租中</div></div>
-</div>
-</div>
-<div class="card">
-<div class="card-title">快捷操作</div>
-<div class="grid-2">
-<button class="btn btn-outline" onclick="switchPage('accounts')">📋 账号管理</button>
-<button class="btn btn-outline" onclick="switchPage('listings')">🎯 商品总览</button>
-<button class="btn btn-outline" onclick="switchPage('orders')">📦 订单记录</button>
-<button class="btn btn-outline" onclick="runConflictCheck()">⚡ 冲突检测</button>
-</div>
-</div>
-</div>
-
-<!-- 账号管理页 -->
-<div id="page-accounts" class="page">
-<div class="header">
-<h1>账号管理</h1>
-<div class="sub">管理各平台租号账号</div>
-</div>
-<div style="padding:12px">
-<button class="btn btn-primary btn-block" onclick="showAddAccountModal()">+ 添加平台账号</button>
-</div>
-<div id="accounts-list"></div>
-</div>
-
-<!-- 商品总览页 -->
-<div id="page-listings" class="page">
-<div class="header">
-<h1>商品总览</h1>
-<div class="sub">按游戏账号分组 · 跨平台统一管理</div>
-</div>
-<div class="filter-bar" id="listing-filters">
-<div class="filter-chip active" data-filter="all" onclick="filterListings('all',this)">全部</div>
-<div class="filter-chip" data-filter="on_shelf" onclick="filterListings('on_shelf',this)">上架中</div>
-<div class="filter-chip" data-filter="off_shelf" onclick="filterListings('off_shelf',this)">已下架</div>
-<div class="filter-chip" data-filter="rented" onclick="filterListings('rented',this)">出租中</div>
-</div>
-<div class="filter-bar" id="platform-filters">
-<div class="filter-chip active" data-platform="all" onclick="filterPlatform('all',this)">全部平台</div>
-</div>
-<div id="listings-container"></div>
-</div>
-
-<!-- 订单页 -->
-<div id="page-orders" class="page">
-<div class="header">
-<h1>订单记录</h1>
-<div class="sub">所有平台订单汇总</div>
-</div>
-<div class="filter-bar">
-<div class="filter-chip active" data-status="all" onclick="filterOrders('all',this)">全部</div>
-<div class="filter-chip" data-status="ongoing" onclick="filterOrders('ongoing',this)">进行中</div>
-<div class="filter-chip" data-status="completed" onclick="filterOrders('completed',this)">已完成</div>
-<div class="filter-chip" data-status="cancelled" onclick="filterOrders('cancelled',this)">已取消</div>
-</div>
-<div id="orders-list"></div>
-</div>
-
-<!-- 设置页 -->
-<div id="page-settings" class="page">
-<div class="header">
-<h1>设置</h1>
-<div class="sub">系统设置与帮助</div>
-</div>
-<div class="card">
-<div class="card-title">账号信息</div>
-<div class="list-item"><div class="item-info"><div class="item-title">当前用户</div><div class="item-desc" id="settings-username">admin</div></div></div>
-</div>
-<div class="card">
-<div class="card-title">关于</div>
-<div class="list-item"><div class="item-info"><div class="item-title">应用名称</div><div class="item-desc">租号管家</div></div></div>
-<div class="list-item"><div class="item-info"><div class="item-title">版本</div><div class="item-desc">0.1.0</div></div></div>
-<div class="list-item"><div class="item-info"><div class="item-title">已对接平台</div><div class="item-desc">U号租、密马、虚贝</div></div></div>
-</div>
-<div class="card">
-<button class="btn btn-danger btn-block" onclick="doLogout()">退出登录</button>
-</div>
-</div>
-
-<!-- 底部导航 -->
-<div class="tabbar">
-<div class="tabbar-item active" data-page="home" onclick="switchPage('home')"><span class="icon">🏠</span>首页</div>
-<div class="tabbar-item" data-page="accounts" onclick="switchPage('accounts')"><span class="icon">📋</span>账号</div>
-<div class="tabbar-item" data-page="listings" onclick="switchPage('listings')"><span class="icon">🎯</span>商品</div>
-<div class="tabbar-item" data-page="orders" onclick="switchPage('orders')"><span class="icon">📦</span>订单</div>
-<div class="tabbar-item" data-page="settings" onclick="switchPage('settings')"><span class="icon">⚙️</span>我的</div>
-</div>
-
-<!-- 添加账号弹窗 -->
-<div class="modal-mask" id="modal-add-account">
-<div class="modal">
-<h3>添加平台账号</h3>
-<div class="form-group">
-<label>选择平台</label>
-<select id="add-platform" onchange="onPlatformChange()">
-<option value="uhaozu">U号租（账号密码自动登录）</option>
-<option value="xubei">虚贝（账号密码自动登录）</option>
-<option value="mima">密马（手机号验证码登录）</option>
-</select>
-</div>
-<!-- 账号密码登录方式（U号租、虚贝） -->
-<div id="password-login-fields">
-<div class="form-group">
-<label>平台用户名（手机号）</label>
-<input type="text" id="add-username" placeholder="平台登录用户名/手机号">
-</div>
-<div class="form-group">
-<label>平台密码</label>
-<input type="password" id="add-password" placeholder="平台登录密码">
-</div>
-</div>
-<!-- 密马验证码登录方式 -->
-<div id="mima-login-fields" style="display:none">
-<div class="form-group">
-<label>手机号</label>
-<input type="text" id="mima-phone" placeholder="请输入密马绑定的手机号">
-</div>
-<div class="form-group">
-<label>短信验证码</label>
-<div style="display:flex;gap:8px">
-<input type="text" id="mima-code" placeholder="请输入验证码" style="flex:1">
-<button class="btn btn-outline" id="btn-send-sms" onclick="sendMimaSms()" style="white-space:nowrap;font-size:12px;padding:0 12px;">发送验证码</button>
-</div>
-<div style="font-size:11px;color:#999;margin-top:4px;">如发送失败，请在密马App上获取验证码后直接输入</div>
-</div>
-</div>
-<div class="form-group">
-<label>昵称（可选）</label>
-<input type="text" id="add-nickname" placeholder="给这个账号起个名字">
-</div>
-<div class="form-group">
-<label>分组</label>
-<input type="text" id="add-group" value="默认分组">
-</div>
-<div id="auto-login-progress" style="display:none;background:#f0f7ff;border:1px solid #d0e3ff;border-radius:8px;padding:12px;margin-bottom:12px;">
-<div style="font-size:13px;color:#1a73e8;margin-bottom:6px;">🔄 登录中...</div>
-<div id="auto-login-progress-text" style="font-size:12px;color:#666;line-height:1.6;">正在启动...</div>
-</div>
-<div style="display:flex;gap:10px;flex-wrap:wrap;">
-<button class="btn btn-outline" style="flex:1;min-width:80px;" onclick="closeModal('modal-add-account')">取消</button>
-<button class="btn" style="flex:2;min-width:150px;background:#1a73e8;color:white;border:none;" onclick="closeModal('modal-add-account');showBrowserLoginModal()">🖥️ 浏览器登录</button>
-</div>
-</div>
-</div>
-
-<!-- 账号详情弹窗 -->
-<div class="modal-mask" id="modal-account-detail">
-<div class="modal">
-<h3 id="detail-title">账号详情</h3>
-<div id="detail-content"></div>
-<div style="display:flex;gap:10px;margin-top:16px">
-<button class="btn btn-outline" style="flex:1" onclick="closeModal('modal-account-detail')">关闭</button>
-<button class="btn btn-primary" style="flex:1" onclick="syncCurrentAccount()">立即同步</button>
-</div>
-</div>
-</div>
-
-<!-- 编辑商品弹窗 -->
-<div class="modal-mask" id="modal-edit-listing">
-<div class="modal">
-<h3>编辑商品</h3>
-<div class="form-group">
-<label>备注</label>
-<input type="text" id="edit-remark" placeholder="给这个商品加个备注">
-</div>
-<div class="form-group">
-<label>账号标识（QQ号等）</label>
-<input type="text" id="edit-identifier" placeholder="用于跨平台合并识别">
-</div>
-<div style="display:flex;gap:10px">
-<button class="btn btn-outline" style="flex:1" onclick="closeModal('modal-edit-listing')">取消</button>
-<button class="btn btn-primary" style="flex:1" onclick="submitEditListing()">保存</button>
-</div>
-</div>
-</div>
-
-<!-- 远程浏览器登录弹窗 -->
-<div class="modal-mask" id="modal-browser-login">
-<div class="modal" style="max-width:98vw;width:98vw;max-height:98vh;height:98vh;overflow-y:auto;padding:12px;">
-<h3 id="browser-login-title" style="font-size:16px;margin-bottom:8px;">远程浏览器登录</h3>
-<div id="browser-platform-select" style="margin-bottom:12px;">
-<p style="font-size:13px;color:#666;margin-bottom:12px;">选择要登录的平台，系统会打开平台登录页，你自己在截图上操作登录，登录成功后点击"登录完成"按钮。</p>
-<div style="display:flex;gap:10px;flex-wrap:wrap;">
-<button class="btn btn-outline" onclick="startBrowserLogin('uhaozu')" style="flex:1;min-width:100px;padding:14px;font-size:15px;">U号租</button>
-<button class="btn btn-outline" onclick="startBrowserLogin('mima')" style="flex:1;min-width:100px;padding:14px;font-size:15px;">密马</button>
-<button class="btn btn-outline" onclick="startBrowserLogin('xubei')" style="flex:1;min-width:100px;padding:14px;font-size:15px;">虚贝</button>
-</div>
-</div>
-<div id="browser-session-area" style="display:none;display:flex;flex-direction:column;height:calc(98vh - 60px);">
-<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap;">
-<input type="text" id="browser-input-text" placeholder="输入文字后按回车" style="flex:1;min-width:120px;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;" onkeydown="if(event.key==='Enter')browserTypeText()">
-<button class="btn btn-outline" style="padding:8px 10px;font-size:13px;" onclick="browserTypeText()">输入</button>
-<button class="btn btn-outline" style="padding:8px 10px;font-size:13px;" onclick="browserPressKey('Backspace')">⌫</button>
-<button class="btn btn-outline" style="padding:8px 10px;font-size:13px;" onclick="browserPressKey('Enter')">⏎</button>
-<button class="btn btn-outline" style="padding:8px 10px;font-size:13px;" onclick="browserZoomIn()">🔍+</button>
-<button class="btn btn-outline" style="padding:8px 10px;font-size:13px;" onclick="browserZoomOut()">🔍-</button>
-<button class="btn btn-outline" style="padding:8px 10px;font-size:13px;" onclick="browserRefresh()">🔄</button>
-</div>
-<div style="flex:1;overflow:auto;border:2px solid #e0e0e0;border-radius:8px;overflow:auto;background:#f5f5f5;cursor:crosshair;position:relative;" id="browser-image-container">
-<img id="browser-screenshot" src="" style="width:100%;display:block;pointer-events:none;transform-origin:top left;transition:transform 0.2s;" alt="登录页截图">
-<div id="browser-loading" style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.85);display:flex;align-items:center;justify-content:center;font-size:15px;color:#666;z-index:10;">加载中...</div>
-</div>
-<div style="font-size:12px;color:#999;margin-top:6px;">💡 点击截图=鼠标点击 | 上方输入框输入文字 | 🔍+放大截图方便操作</div>
-<div style="display:flex;gap:10px;margin-top:10px;">
-<button class="btn btn-outline" style="flex:1;padding:12px;" onclick="closeBrowserSession()">取消</button>
-<button class="btn" style="flex:2;padding:12px;background:#00c853;color:white;border:none;font-size:15px;" onclick="confirmBrowserLogin()">✅ 登录完成</button>
-</div>
-</div>
-</div>
-</div>
-
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-
-<script src="/lib/vue.global.prod.js"></script>
-<script>
-const API_BASE = '';
-let token = localStorage.getItem('token') || '';
-let currentAccountId = null;
-let currentListingId = null;
-let currentFilter = 'all';
-let currentPlatform = 'all';
-let currentOrderStatus = 'all';
-let allListings = [];
-
-function showToast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2000);
-}
-
-function api(url, options={}){
-  const headers = {'Content-Type':'application/json', ...(options.headers||{})};
-  if(token) headers['Authorization']='Bearer '+token;
-  return fetch(API_BASE+url, {...options, headers}).then(r=>{
-    if(r.status===401){token='';localStorage.removeItem('token');switchPage('login');throw new Error('未登录');}
-    return r.json();
-  });
-}
-
-function switchPage(page){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-'+page).classList.add('active');
-  document.querySelectorAll('.tabbar-item').forEach(t=>t.classList.remove('active'));
-  const tab=document.querySelector('.tabbar-item[data-page="'+page+'"]');
-  if(tab)tab.classList.add('active');
-  if(page==='home')loadHome();
-  if(page==='accounts')loadAccounts();
-  if(page==='listings')loadListings();
-  if(page==='orders')loadOrders();
-}
-
-function doLogin(){
-  const u=document.getElementById('login-username').value;
-  const p=document.getElementById('login-password').value;
-  fetch(API_BASE+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})})
-  .then(r=>r.json()).then(d=>{
-    if(d.access_token){token=d.access_token;localStorage.setItem('token',token);showToast('登录成功');switchPage('home');}
-    else showToast(d.detail||'登录失败');
-  }).catch(e=>showToast('登录失败'));
-}
-
-function doLogout(){token='';localStorage.removeItem('token');switchPage('login');}
-
-function loadHome(){
-  api('/api/stats/overview').then(d=>{
-    document.getElementById('stat-today-income').textContent=d.today_income;
-    document.getElementById('stat-today-orders').textContent=d.today_orders;
-    document.getElementById('stat-today-hours').textContent=d.today_hours;
-    document.getElementById('stat-total-accounts').textContent=d.total_accounts;
-    document.getElementById('stat-online-accounts').textContent=d.online_accounts;
-    document.getElementById('stat-game-accounts').textContent=d.total_game_accounts||0;
-    document.getElementById('stat-total-listings').textContent=d.total_listings;
-    document.getElementById('stat-onshelf-listings').textContent=d.on_shelf_listings;
-  }).catch(()=>{});
-}
-
-function platformName(p){return {uhaozu:'U号租',mima:'密马',xubei:'虚贝'}[p]||p;}
-function statusBadge(s){
-  if(s==='on_shelf')return '<span class="badge badge-green">上架中</span>';
-  if(s==='off_shelf')return '<span class="badge badge-gray">已下架</span>';
-  if(s==='rented')return '<span class="badge badge-red">出租中</span>';
-  if(s==='ongoing')return '<span class="badge badge-orange">进行中</span>';
-  if(s==='completed')return '<span class="badge badge-green">已完成</span>';
-  if(s==='cancelled')return '<span class="badge badge-gray">已取消</span>';
-  return '<span class="badge badge-gray">'+s+'</span>';
-}
-
-function loadAccounts(){
-  api('/api/accounts').then(list=>{
-    const c=document.getElementById('accounts-list');
-    if(!list.length){c.innerHTML='<div class="empty"><div class="icon">📋</div>暂无账号，点击上方按钮添加</div>';return;}
-    c.innerHTML=list.map(a=>`
-      <div class="card" onclick="showAccountDetail(${a.id})">
-        <div class="listing-title">
-          <span><span class="platform-tag platform-${a.platform}">${platformName(a.platform)}</span>${a.nickname||a.platform_username}</span>
-          ${a.status==='online'?'<span class="badge badge-green">在线</span>':a.status==='error'?'<span class="badge badge-red">异常</span>':'<span class="badge badge-gray">离线</span>'}
+<div id="app">
+  <!-- 登录页 -->
+  <div v-if="page==='login'" class="login-page">
+    <div class="login-header">
+      <div class="logo">☁️</div>
+      <h1>租号管家</h1>
+      <p>多平台自动上下架 · 智能托管</p>
+    </div>
+    <div style="padding:0 16px">
+      <div style="background:#fff;border-radius:12px;padding:4px 16px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+        <div style="display:flex;align-items:center;border-bottom:1px solid #f2f3f5;padding:14px 0">
+          <span style="width:60px;font-size:14px;color:#323233">用户名</span>
+          <input v-model="loginForm.username" type="text" placeholder="请输入用户名" style="flex:1;border:none;outline:none;font-size:14px;background:transparent" />
         </div>
-        <div class="listing-meta">
-          <span>分组：${a.group_name}</span>
-          <span>自动托管：${a.auto_manage?'开':'关'}</span>
+        <div style="display:flex;align-items:center;padding:14px 0">
+          <span style="width:60px;font-size:14px;color:#323233">密码</span>
+          <input v-model="loginForm.password" type="password" placeholder="请输入密码" style="flex:1;border:none;outline:none;font-size:14px;background:transparent" />
         </div>
-        <div class="listing-meta">
-          <span>上架时间：${a.onshelf_start_time} - ${a.onshelf_end_time}</span>
-        </div>
-        ${a.error_message?`<div class="listing-meta"><span style="color:#ff4757">错误：${a.error_message.substring(0,50)}</span></div>`:''}
       </div>
-    `).join('');
-  }).catch(()=>{});
-}
-
-function showAddAccountModal(){
-  document.getElementById('modal-add-account').classList.add('active');
-  onPlatformChange();
-}
-function closeModal(id){document.getElementById(id).classList.remove('active');}
-
-function onPlatformChange(){
-  const platform=document.getElementById('add-platform').value;
-  const pwdFields=document.getElementById('password-login-fields');
-  const mimaFields=document.getElementById('mima-login-fields');
-  const btnAutoLogin=document.getElementById('btn-auto-login');
-  const btnMimaLogin=document.getElementById('btn-mima-login');
-
-  if(platform==='mima'){
-    pwdFields.style.display='none';
-    mimaFields.style.display='block';
-    btnAutoLogin.style.display='none';
-    btnMimaLogin.style.display='block';
-  }else{
-    pwdFields.style.display='block';
-    mimaFields.style.display='none';
-    btnAutoLogin.style.display='block';
-    btnMimaLogin.style.display='none';
-  }
-}
-
-let smsCountdown=0;
-let smsTimer=null;
-function sendMimaSms(){
-  const phone=document.getElementById('mima-phone').value.trim();
-  if(!phone){showToast('请输入手机号');return;}
-  if(!/^1\d{10}$/.test(phone)){showToast('请输入正确的手机号');return;}
-
-  const btn=document.getElementById('btn-send-sms');
-  btn.disabled=true;
-  btn.style.opacity='0.6';
-
-  api('/api/accounts/mima-send-sms',{
-    method:'POST',
-    body:JSON.stringify({phone:phone})
-  }).then(d=>{
-    if(d.success){
-      showToast('验证码已发送，请注意查收');
-    }else{
-      showToast(d.message||'发送失败，请在密马App上获取验证码');
-    }
-    // 开始倒计时
-    smsCountdown=60;
-    btn.textContent=smsCountdown+'s后重发';
-    smsTimer=setInterval(()=>{
-      smsCountdown--;
-      if(smsCountdown<=0){
-        clearInterval(smsTimer);
-        btn.textContent='发送验证码';
-        btn.disabled=false;
-        btn.style.opacity='1';
-      }else{
-        btn.textContent=smsCountdown+'s后重发';
-      }
-    },1000);
-  }).catch(e=>{
-    showToast('发送失败: '+e);
-    btn.disabled=false;
-    btn.style.opacity='1';
-  });
-}
-
-function mimaLogin(){
-  const phone=document.getElementById('mima-phone').value.trim();
-  const code=document.getElementById('mima-code').value.trim();
-  const nickname=document.getElementById('add-nickname').value;
-  const groupName=document.getElementById('add-group').value||'默认分组';
-
-  if(!phone){showToast('请输入手机号');return;}
-  if(!code){showToast('请输入验证码');return;}
-
-  const btn=document.getElementById('btn-mima-login');
-  btn.disabled=true;
-  btn.style.opacity='0.6';
-  document.getElementById('auto-login-progress').style.display='block';
-  document.getElementById('auto-login-progress-text').textContent='正在登录...';
-
-  api('/api/accounts/mima-login',{
-    method:'POST',
-    body:JSON.stringify({
-      phone:phone,
-      code:code,
-      nickname:nickname||undefined,
-      group_name:groupName,
-    })
-  }).then(d=>{
-    if(d.success){
-      document.getElementById('auto-login-progress-text').innerHTML='<span style="color:#00c853;">✅ 登录成功！正在同步数据...</span>';
-      showToast('登录成功！');
-      setTimeout(()=>{
-        closeModal('modal-add-account');
-        loadAccounts();
-        resetAutoLoginBtn();
-      },2000);
-    }else{
-      document.getElementById('auto-login-progress-text').innerHTML='<span style="color:#ff1744;">❌ 登录失败: '+(d.detail||d.message||'未知错误')+'</span>';
-      showToast('登录失败，请检查手机号和验证码');
-      btn.disabled=false;
-      btn.style.opacity='1';
-    }
-  }).catch(e=>{
-    document.getElementById('auto-login-progress-text').innerHTML='<span style="color:#ff1744;">❌ 登录失败: '+e+'</span>';
-    showToast('登录失败: '+e);
-    btn.disabled=false;
-    btn.style.opacity='1';
-  });
-}
-
-function submitAddAccount(){
-  const platform=document.getElementById('add-platform').value;
-  let username='';
-  let password='';
-  if(platform==='mima'){
-    username=document.getElementById('mima-phone').value;
-  }else{
-    username=document.getElementById('add-username').value;
-    password=document.getElementById('add-password').value;
-  }
-  const data={
-    platform:platform,
-    platform_username:username,
-    platform_password:password||undefined,
-    nickname:document.getElementById('add-nickname').value||undefined,
-    group_name:document.getElementById('add-group').value||'默认分组',
-  };
-  if(!data.platform_username){showToast('请输入用户名');return;}
-  api('/api/accounts',{method:'POST',body:JSON.stringify(data)}).then(d=>{
-    if(d.id){showToast('添加成功');closeModal('modal-add-account');loadAccounts();}
-    else showToast(d.detail||'添加失败');
-  }).catch(e=>showToast('添加失败'));
-}
-
-let autoLoginPollTimer=null;
-function startAutoLogin(){
-  const platform=document.getElementById('add-platform').value;
-  const username=document.getElementById('add-username').value;
-  const password=document.getElementById('add-password').value;
-  const nickname=document.getElementById('add-nickname').value;
-  const groupName=document.getElementById('add-group').value||'默认分组';
-
-  if(!username){showToast('请输入平台账号');return;}
-  if(!password){showToast('请输入平台密码');return;}
-  if(platform!=='uhaozu' && platform!=='xubei'){
-    showToast('该平台不支持自动登录');return;
-  }
-
-  const btn=document.getElementById('btn-auto-login');
-  btn.disabled=true;
-  btn.style.opacity='0.6';
-  document.getElementById('auto-login-progress').style.display='block';
-  document.getElementById('auto-login-progress-text').textContent='正在启动自动登录...';
-
-  api('/api/accounts/auto-login',{
-    method:'POST',
-    body:JSON.stringify({
-      platform:platform,
-      platform_username:username,
-      platform_password:password,
-      nickname:nickname||undefined,
-      group_name:groupName,
-    })
-  }).then(d=>{
-    if(d.task_id){
-      showToast('自动登录已启动，请稍候...');
-      pollAutoLoginStatus(d.task_id);
-    }else{
-      showToast(d.detail||'启动失败');
-      resetAutoLoginBtn();
-    }
-  }).catch(e=>{
-    showToast('启动失败: '+e);
-    resetAutoLoginBtn();
-  });
-}
-
-function pollAutoLoginStatus(taskId){
-  if(autoLoginPollTimer)clearInterval(autoLoginPollTimer);
-  autoLoginPollTimer=setInterval(()=>{
-    api('/api/accounts/auto-login/'+taskId).then(d=>{
-      const progressEl=document.getElementById('auto-login-progress-text');
-      if(d.progress){
-        progressEl.textContent=d.progress;
-      }
-      if(d.status==='success'){
-        clearInterval(autoLoginPollTimer);
-        progressEl.innerHTML='<span style="color:#00c853;">✅ 登录成功！正在同步数据...</span>';
-        showToast('自动登录成功！');
-        setTimeout(()=>{
-          closeModal('modal-add-account');
-          loadAccounts();
-          resetAutoLoginBtn();
-        },2000);
-      }else if(d.status==='failed'){
-        clearInterval(autoLoginPollTimer);
-        progressEl.innerHTML='<span style="color:#ff1744;">❌ 登录失败: '+(d.message||'未知错误')+'</span>';
-        showToast('自动登录失败，请检查账号密码');
-        resetAutoLoginBtn();
-      }
-    }).catch(e=>{
-      console.error('查询状态失败',e);
-    });
-  },2000);
-}
-
-function resetAutoLoginBtn(){
-  const btn=document.getElementById('btn-auto-login');
-  btn.disabled=false;
-  btn.style.opacity='1';
-  document.getElementById('auto-login-progress').style.display='none';
-  if(autoLoginPollTimer){clearInterval(autoLoginPollTimer);autoLoginPollTimer=null;}
-}
-
-function showAccountDetail(id){
-  currentAccountId=id;
-  api('/api/accounts/'+id).then(a=>{
-    document.getElementById('detail-title').textContent=(a.nickname||a.platform_username)+' - 详情';
-    api('/api/accounts/'+id+'/listings?page_size=200').then(ld=>{
-      const items=ld.items||[];
-      const onShelf=items.filter(i=>i.status==='on_shelf').length;
-      const rented=items.filter(i=>i.status==='rented').length;
-      document.getElementById('detail-content').innerHTML=`
-        <div class="list-item"><div class="item-info"><div class="item-title">平台</div></div><span class="platform-tag platform-${a.platform}">${platformName(a.platform)}</span></div>
-        <div class="list-item"><div class="item-info"><div class="item-title">用户名</div></div><span>${a.platform_username}</span></div>
-        <div class="list-item"><div class="item-info"><div class="item-title">分组</div></div><span>${a.group_name}</span></div>
-        <div class="list-item"><div class="item-info"><div class="item-title">自动托管</div></div><span>${a.auto_manage?'开启':'关闭'}</span></div>
-        <div class="list-item"><div class="item-info"><div class="item-title">商品总数</div></div><span>${ld.total||0}</span></div>
-        <div class="list-item"><div class="item-info"><div class="item-title">上架中</div></div><span class="badge badge-green">${onShelf}</span></div>
-        <div class="list-item"><div class="item-info"><div class="item-title">出租中</div></div><span class="badge badge-red">${rented}</span></div>
-        <div class="list-item"><div class="item-info"><div class="item-title">最后同步</div></div><span>${a.last_sync_time?new Date(a.last_sync_time).toLocaleString():'未同步'}</span></div>
-        <div style="margin-top:12px">
-          <div class="form-group"><label>Cookie / Token（用于平台认证）</label>
-          <textarea id="detail-credential" rows="3" placeholder="粘贴Cookie或Token，保存后可同步数据"></textarea></div>
-          <button class="btn btn-outline btn-sm" onclick="saveCredential()">保存凭证</button>
-        </div>
-      `;
-      document.getElementById('modal-account-detail').classList.add('active');
-    });
-  });
-}
-
-function saveCredential(){
-  const val=document.getElementById('detail-credential').value.trim();
-  if(!val){showToast('请输入凭证');return;}
-  const platform=document.getElementById('detail-title').textContent;
-  const isToken=platform.includes('密马');
-  const data=isToken?{token_data:val}:{cookie_data:val};
-  api('/api/accounts/'+currentAccountId,{method:'PUT',body:JSON.stringify(data)}).then(d=>{
-    if(d.id){showToast('凭证已保存');}
-    else showToast('保存失败');
-  });
-}
-
-function syncCurrentAccount(){
-  api('/api/accounts/'+currentAccountId+'/sync',{method:'POST'}).then(d=>{
-    showToast(d.message||'同步已启动');
-    closeModal('modal-account-detail');
-    setTimeout(loadAccounts,2000);
-  });
-}
-
-function loadListings(){
-  api('/api/accounts/listings/grouped').then(groups=>{
-    allListings=[];
-    groups.forEach(g=>g.listings.forEach(l=>allListings.push(l)));
-    renderListings();
-    // 加载平台筛选
-    const platforms=[...new Set(allListings.map(l=>{
-      // 需要从account_id获取平台，这里简化处理
-      return l.platform||'all';
-    }))];
-  }).catch(()=>{
-    document.getElementById('listings-container').innerHTML='<div class="empty"><div class="icon">🎯</div>暂无商品数据</div>';
-  });
-}
-
-function filterListings(f,el){
-  currentFilter=f;
-  document.querySelectorAll('#listing-filters .filter-chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
-  renderListings();
-}
-
-function filterPlatform(p,el){
-  currentPlatform=p;
-  document.querySelectorAll('#platform-filters .filter-chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
-  renderListings();
-}
-
-function renderListings(){
-  let filtered=allListings;
-  if(currentFilter!=='all')filtered=filtered.filter(l=>l.status===currentFilter);
-  // 按account_identifier分组
-  const groups={};
-  filtered.forEach(l=>{
-    const k=l.account_identifier||'未设置';
-    if(!groups[k])groups[k]=[];
-    groups[k].push(l);
-  });
-  const c=document.getElementById('listings-container');
-  if(!Object.keys(groups).length){c.innerHTML='<div class="empty"><div class="icon">🎯</div>没有符合条件的商品</div>';return;}
-  c.innerHTML=Object.entries(groups).map(([ident,items])=>{
-    const rented=items.filter(i=>i.status==='rented').length;
-    const onShelf=items.filter(i=>i.status==='on_shelf').length;
-    return `
-      <div class="group-header">
-        <span>👤 ${ident} (${items.length}个商品)</span>
-        <span>${rented>0?'<span class="badge badge-red">出租中</span>':''} ${onShelf>0?'<span class="badge badge-green">'+onShelf+'上架</span>':''}</span>
+      <div class="login-btn">
+        <button class="btn btn-primary btn-block" style="padding:14px;border-radius:24px;font-size:16px" :disabled="loginLoading" @click="doLogin">{{loginLoading?'登录中...':'登 录'}}</button>
       </div>
-      ${items.map(l=>`
-        <div class="listing-card">
-          <div class="listing-title">
-            <span style="flex:1">${l.title}</span>
-            ${statusBadge(l.status)}
-          </div>
-          <div class="listing-meta">
-            <span>💰 ${l.price_per_hour}元/时</span>
-            <span>🎮 ${l.game_name||'未知'}</span>
-            <span>⭐ ${l.rating}</span>
-          </div>
-          ${l.remark?`<div class="remark-text">📝 ${l.remark}</div>`:''}
-          <div class="listing-actions" style="margin-top:8px">
-            ${l.status==='off_shelf'?`<button class="btn btn-primary btn-sm" onclick="listingAction(${l.account_id},${l.id},'onshelf')">上架</button>`:''}
-            ${l.status==='on_shelf'?`<button class="btn btn-outline btn-sm" onclick="listingAction(${l.account_id},${l.id},'offshelf')">下架</button>`:''}
-            <button class="btn btn-outline btn-sm" onclick="showEditListing(${l.id},'${(l.remark||'').replace(/'/g,"\\'")}','${(l.account_identifier||'').replace(/'/g,"\\'")}')">编辑</button>
-          </div>
+      <div class="login-tip">
+        <p>默认账号：admin / admin123</p>
+        <p>首次使用请在设置中修改密码</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主界面 -->
+  <template v-else>
+    <!-- 首页 -->
+    <div v-if="page==='home'">
+      <div class="page-header">
+        <div class="title">☁️ 租号管家</div>
+        <div class="subtitle">{{ todayStr }} · 智能托管运行中</div>
+      </div>
+      <div class="card" style="margin-top:-16px">
+        <div class="card-title"><span>📊 今日概览</span><span style="font-size:13px;color:#1989fa" @click="loadOverview">刷新</span></div>
+        <div class="stat-grid">
+          <div class="stat-item success"><div class="v">¥{{overview.today_income}}</div><div class="l">今日收益</div></div>
+          <div class="stat-item primary"><div class="v">{{overview.today_orders}}</div><div class="l">今日订单</div></div>
+          <div class="stat-item warning"><div class="v">{{overview.today_hours}}h</div><div class="l">出租时长</div></div>
+          <div class="stat-item"><div class="v">{{overview.online_accounts}}/{{overview.total_accounts}}</div><div class="l">在线账号</div></div>
         </div>
-      `).join('')}
-    `;
-  }).join('');
-}
-
-function listingAction(accountId,listingId,action){
-  api(`/api/accounts/${accountId}/listings/${listingId}/action`,{method:'POST',body:JSON.stringify({action})}).then(d=>{
-    showToast(d.message||(d.success?'操作成功':'操作失败'));
-    setTimeout(loadListings,1000);
-  });
-}
-
-function showEditListing(id,remark,identifier){
-  currentListingId=id;
-  document.getElementById('edit-remark').value=remark;
-  document.getElementById('edit-identifier').value=identifier;
-  document.getElementById('modal-edit-listing').classList.add('active');
-}
-
-function submitEditListing(){
-  const data={remark:document.getElementById('edit-remark').value,account_identifier:document.getElementById('edit-identifier').value};
-  // 找到对应的account_id
-  const listing=allListings.find(l=>l.id===currentListingId);
-  if(!listing){showToast('商品不存在');return;}
-  api(`/api/accounts/${listing.account_id}/listings/${currentListingId}`,{method:'PUT',body:JSON.stringify(data)}).then(d=>{
-    if(d.id){showToast('保存成功');closeModal('modal-edit-listing');setTimeout(loadListings,500);}
-    else showToast('保存失败');
-  });
-}
-
-function loadOrders(){
-  api('/api/orders?page_size=100').then(d=>{
-    let list=d.items||[];
-    if(currentOrderStatus!=='all')list=list.filter(o=>o.status===currentOrderStatus);
-    const c=document.getElementById('orders-list');
-    if(!list.length){c.innerHTML='<div class="empty"><div class="icon">📦</div>暂无订单</div>';return;}
-    c.innerHTML=list.map(o=>`
+      </div>
       <div class="card">
-        <div class="listing-title">
-          <span style="flex:1">${o.listing_title||'未知商品'}</span>
-          ${statusBadge(o.status)}
-        </div>
-        <div class="listing-meta">
-          <span>👤 ${o.buyer_nickname||'匿名'}</span>
-          <span>⏱ ${o.duration_hours}小时</span>
-          <span>💰 ${o.amount}元</span>
-        </div>
-        <div class="listing-meta">
-          <span>订单号：${o.platform_order_id}</span>
-        </div>
-        <div class="listing-meta">
-          <span>${new Date(o.created_at).toLocaleString()}</span>
+        <div class="card-title">📈 收益汇总</div>
+        <div class="stat-grid">
+          <div class="stat-item"><div class="v" style="font-size:18px">¥{{overview.week_income}}</div><div class="l">本周 ({{overview.week_orders}}单)</div></div>
+          <div class="stat-item"><div class="v" style="font-size:18px">¥{{overview.month_income}}</div><div class="l">本月 ({{overview.month_orders}}单)</div></div>
         </div>
       </div>
-    `).join('');
-  }).catch(()=>{});
-}
+      <div class="card clickable" @click="goPage('accountGroups')">
+        <div class="card-title">🎮 商品状态</div>
+        <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+          <div class="stat-item success"><div class="v">{{overview.on_shelf_listings}}</div><div class="l">上架中</div></div>
+          <div class="stat-item"><div class="v">{{overview.total_game_accounts}}</div><div class="l">游戏账号 ›</div></div>
+          <div class="stat-item"><div class="v">{{overview.total_listings}}</div><div class="l">商品总数</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚡ 快捷操作</div>
+        <div class="quick-actions">
+          <div class="qa-item" @click="goPage('accounts')"><div class="qa-icon">➕</div><div class="qa-text">添加账号</div></div>
+          <div class="qa-item" @click="syncAll"><div class="qa-icon">🔄</div><div class="qa-text">全部同步</div></div>
+          <div class="qa-item" @click="goPage('orders')"><div class="qa-icon">📋</div><div class="qa-text">查看订单</div></div>
+          <div class="qa-item" @click="goPage('stats')"><div class="qa-icon">📉</div><div class="qa-text">数据统计</div></div>
+        </div>
+      </div>
+    </div>
 
-function filterOrders(s,el){
-  currentOrderStatus=s;
-  document.querySelectorAll('#page-orders .filter-chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
-  loadOrders();
-}
+    <!-- 账号管理 -->
+    <div v-if="page==='accounts'">
+      <div class="page-header"><div class="title">账号管理</div><div class="subtitle">共 {{accounts.length}} 个账号 · 在线 {{accounts.filter(a=>a.status==='online').length}} 个</div></div>
+      <div v-if="accounts.length" style="padding:0 12px">
+        <div v-for="acc in accounts" :key="acc.id" class="account-card" @click="openAccount(acc)">
+          <div class="acct-head">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:20px">{{getPlatformIcon(acc.platform)}}</span>
+              <span style="font-size:14px;font-weight:600">{{getPlatformName(acc.platform)}}</span>
+            </div>
+            <span :class="['status-tag',acc.status]">{{getStatusText(acc.status)}}</span>
+          </div>
+          <div class="acct-name">{{acc.nickname||acc.platform_username}}</div>
+          <div class="acct-user">{{acc.platform_username}}</div>
+          <div class="acct-meta">
+            <span>📁 {{acc.group_name}}</span>
+            <span>⏰ {{acc.onshelf_start_time}}-{{acc.onshelf_end_time}}</span>
+            <span :style="acc.auto_manage?'color:#07c160':''">{{acc.auto_manage?'🤖 托管中':'手动'}}</span>
+          </div>
+          <div v-if="acc.error_message" style="font-size:12px;color:#ee0a24;background:#fef0f0;padding:6px 10px;border-radius:6px;margin-bottom:10px">⚠️ {{acc.error_message}}</div>
+          <div class="acct-actions" @click.stop>
+            <button class="btn btn-mini btn-primary btn-plain" style="color:#1989fa" @click="loginAccount(acc)">登录</button>
+            <button class="btn btn-mini btn-success btn-plain" style="color:#07c160" @click="syncAccount(acc)">同步</button>
+            <button class="btn btn-mini btn-plain" style="color:#ff976a" @click="toggleManage(acc)">{{acc.auto_manage?'停托管':'开托管'}}</button>
+          </div>
+        </div>
+      </div>
+      <div v-else class="empty-state"><div class="icon">📭</div><p>暂无账号，点击右下角按钮添加</p></div>
+      <div class="fab-btn" @click="showAddAccount=true">+</div>
+    </div>
 
-function runConflictCheck(){
-  api('/api/accounts/conflict-check',{method:'POST'}).then(d=>{
-    if(d.success){showToast(`检测完成：发现${d.result.detected||0}个冲突，自动下架${d.result.auto_offshelfed||0}个`);}
-    else showToast(d.message||'检测失败');
-  });
-}
+    <!-- 账号详情 -->
+    <div v-if="page==='accountDetail' && currentAccount">
+      <div class="navbar">
+        <span class="nav-back" @click="goPage('accounts')">‹ 返回</span>
+        <span class="nav-title">账号详情</span>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          <span>{{getPlatformIcon(currentAccount.platform)}} {{getPlatformName(currentAccount.platform)}}</span>
+          <span :class="['status-tag',currentAccount.status]">{{getStatusText(currentAccount.status)}}</span>
+        </div>
+        <div class="cell-row"><span class="cell-label">备注名</span><span class="cell-value">{{currentAccount.nickname||'-'}}</span></div>
+        <div class="cell-row"><span class="cell-label">平台账号</span><span class="cell-value">{{currentAccount.platform_username}}</span></div>
+        <div class="cell-row"><span class="cell-label">分组</span><span class="cell-value">{{currentAccount.group_name}}</span></div>
+        <div class="cell-row"><span class="cell-label">自动托管</span><span class="cell-value">{{currentAccount.auto_manage?'开启':'关闭'}}</span></div>
+        <div class="cell-row"><span class="cell-label">托管时段</span><span class="cell-value">{{currentAccount.onshelf_start_time}} - {{currentAccount.onshelf_end_time}}</span></div>
+        <div class="cell-row"><span class="cell-label">最后同步</span><span class="cell-value">{{currentAccount.last_sync_time?formatTime(currentAccount.last_sync_time):'从未同步'}}</span></div>
+        <div style="display:flex;gap:10px;padding:16px;justify-content:center">
+          <button class="btn btn-primary" style="padding:8px 20px;border-radius:8px;font-size:14px" @click="loginAccount(currentAccount)">登录</button>
+          <button class="btn btn-success" style="padding:8px 20px;border-radius:8px;font-size:14px" @click="syncAccount(currentAccount)">同步</button>
+          <button class="btn btn-danger" style="padding:8px 20px;border-radius:8px;font-size:14px" @click="deleteAccount(currentAccount)">删除</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>🎮 出租商品 ({{listings.length}})</span><span style="display:flex;gap:12px;font-size:13px"><span style="color:#ee0a24" @click="runConflictCheck">⚠️ 冲突检测</span><span style="color:#1989fa" @click="loadListings">刷新</span></span></div>
+        <div v-if="listings.length">
+          <div v-for="item in listings" :key="item.id" class="listing-item">
+            <div class="li-info">
+              <div class="li-title">{{item.title}}</div>
+              <div class="li-meta"><span>{{item.game_name||'-'}}</span><span>¥{{item.price_per_hour}}/时</span><span>租{{item.total_rentals}}次</span></div>
+              <div v-if="item.account_identifier" class="li-account" @click="editAccountId(item)">🔑 {{item.account_identifier}} <span style="opacity:.6">✎</span></div>
+              <div v-else class="li-account" @click="editAccountId(item)" style="background:#f2f3f5;color:#969799">➕ 设置账号标识</div>
+              <div v-if="isConflict(item)" class="li-conflict">⚠️ 跨平台冲突：该账号在其他平台也在售</div>
+            </div>
+            <div class="li-right">
+              <span :class="['status-tag',item.status]">{{getListingStatusText(item.status)}}</span>
+              <button v-if="item.status==='off_shelf'" class="btn btn-mini btn-success" style="padding:4px 14px;border-radius:6px;font-size:12px" @click="listingAction(item,'onshelf')">上架</button>
+              <button v-else class="btn btn-mini" style="padding:4px 14px;border-radius:6px;font-size:12px;background:#ff976a;color:#fff" @click="listingAction(item,'offshelf')">下架</button>
+            </div>
+          </div>
+        </div>
+        <div v-else class="empty-state" style="padding:30px">暂无商品，请先同步</div>
+      </div>
+    </div>
 
-// ========== 远程浏览器登录 ==========
-let browserSessionId=null;
-let browserPlatform=null;
-let browserZoom=1.0;
+    <!-- 商品总览（按账号分组） -->
+    <div v-if="page==='accountGroups'">
+      <div class="navbar">
+        <span class="nav-back" @click="goPage('home')">‹ 返回</span>
+        <span class="nav-title">商品总览</span>
+        <span style="font-size:13px;color:#1989fa" @click="loadAccountGroups">刷新</span>
+      </div>
+      <div style="padding:12px 16px;font-size:12px;color:#969799;background:#fff7e8;margin:0 12px 12px;border-radius:8px">
+        💡 按游戏账号分组，同一账号在多平台的商品集中显示，方便统一管理和冲突检测
+      </div>
+      <div class="filter-section">
+        <div class="filter-row">
+          <span class="filter-label">游戏</span>
+          <div class="filter-chips">
+            <span :class="['filter-chip-item',!groupFilter.game?'active':'']" @click="groupFilter.game=''">全部</span>
+            <span v-for="g in gameOptions" :key="g" :class="['filter-chip-item',groupFilter.game===g?'active':'']" @click="groupFilter.game=g">{{g}}</span>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">区服</span>
+          <div class="filter-chips">
+            <span :class="['filter-chip-item',!groupFilter.partition?'active':'']" @click="groupFilter.partition=''">全部</span>
+            <span v-for="p in partitionOptions" :key="p" :class="['filter-chip-item',groupFilter.partition===p?'active':'']" @click="groupFilter.partition=p">{{p}}</span>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">状态</span>
+          <div class="filter-chips">
+            <span :class="['filter-chip-item',!groupFilter.status?'active':'']" @click="groupFilter.status=''">全部</span>
+            <span :class="['filter-chip-item',groupFilter.status==='on_shelf'?'active':'']" @click="groupFilter.status='on_shelf'">上架中</span>
+            <span :class="['filter-chip-item',groupFilter.status==='off_shelf'?'active':'']" @click="groupFilter.status='off_shelf'">已下架</span>
+            <span :class="['filter-chip-item',groupFilter.status==='rented'?'active':'']" @click="groupFilter.status='rented'">出租中</span>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">平台</span>
+          <div class="filter-chips">
+            <span :class="['filter-chip-item',!groupFilter.platform?'active':'']" @click="groupFilter.platform=''">全部</span>
+            <span v-for="p in platformOptions" :key="p.key" :class="['filter-chip-item',groupFilter.platform===p.key?'active':'']" @click="groupFilter.platform=p.key">{{p.name}}</span>
+          </div>
+        </div>
+      </div>
+      <div v-if="filteredAccountGroups.length">
+        <div v-for="group in filteredAccountGroups" :key="group.account_identifier||'none'" class="group-card">
+          <div class="group-head" @click="toggleGroup(group.account_identifier||'none')">
+            <div class="gh-left">
+              <div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="gh-account">{{group.account_identifier || '未设置账号标识'}}</span>
+                  <span v-if="group.rented_count>0" style="font-size:11px;color:#fff;background:#ee0a24;padding:2px 8px;border-radius:10px;font-weight:600;animation:pulse 1.5s infinite">🔴 出租中</span>
+                  <span v-else-if="group.on_shelf_count>0" style="font-size:11px;color:#fff;background:#07c160;padding:2px 8px;border-radius:10px;font-weight:600">🟢 待租</span>
+                  <span v-else style="font-size:11px;color:#fff;background:#969799;padding:2px 8px;border-radius:10px;font-weight:600">⚪ 已下架</span>
+                </div>
+                <div class="gh-meta">{{group.total_count}}个商品 · 上架中{{group.on_shelf_count}}个 · {{group.platforms.map(p=>getPlatformName(p)).join('、')}}</div>
+                <div v-if="group.rented_count>0" style="font-size:11px;color:#ee0a24;margin-top:2px">正在出租：{{group.rented_titles.join('、')}}</div>
+              </div>
+            </div>
+            <div class="gh-right">
+              <span v-if="group.has_conflict" class="group-conflict-badge">⚠️ 冲突</span>
+              <span :class="['gh-arrow',expandedGroups[group.account_identifier||'none']?'open':'']">›</span>
+            </div>
+          </div>
+          <div v-if="expandedGroups[group.account_identifier||'none']" class="group-body">
+            <div v-for="item in group.listings" :key="item.id" class="listing-item">
+              <div class="li-info">
+                <div class="li-title" style="font-size:13px">{{item.title}}</div>
+                <div class="li-meta">
+                  <span :class="['group-platform-tag',item.platform]">{{getPlatformName(item.platform)}}</span>
+                  <span>{{item.account_nickname}}</span>
+                  <span>¥{{item.price_per_hour}}/时</span>
+                </div>
+                <div v-if="item.remark" style="font-size:11px;color:#ff976a;margin-top:3px;cursor:pointer" @click="editRemark(item)">📝 {{item.remark}}</div>
+                <div v-else style="font-size:11px;color:#c8c9cc;margin-top:3px;cursor:pointer" @click="editRemark(item)">➕ 添加备注</div>
+              </div>
+              <div class="li-right">
+                <span v-if="item.is_rented" class="status-tag rented">出租中</span>
+                <span v-else :class="['status-tag',item.status]">{{getListingStatusText(item.status)}}</span>
+                <button v-if="item.status==='off_shelf'" class="btn btn-mini btn-success" style="padding:3px 10px;font-size:11px" @click="groupListingAction(item,'onshelf')">上架</button>
+                <button v-else class="btn btn-mini" style="padding:3px 10px;font-size:11px;background:#ff976a;color:#fff" @click="groupListingAction(item,'offshelf')">下架</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="empty-state"><div class="icon">🎮</div><p>{{accountGroups.length?'没有符合筛选条件的商品':'暂无商品，请先同步账号'}}</p></div>
+    </div>
 
-function showBrowserLoginModal(){
-  browserZoom=1.0;
-  document.getElementById('modal-browser-login').classList.add('active');
-  document.getElementById('browser-platform-select').style.display='block';
-  document.getElementById('browser-session-area').style.display='none';
-}
+    <!-- 订单 -->
+    <div v-if="page==='orders'">
+      <div class="page-header"><div class="title">订单记录</div><div class="subtitle">实时同步各平台出租订单</div></div>
+      <div class="filter-bar">
+        <div v-for="f in orderFilters" :key="f.value" class="filter-chip" :class="{active:orderFilter.status===f.value}" @click="orderFilter.status=f.value">{{f.text}}</div>
+      </div>
+      <div v-if="filteredOrders.length" style="padding:0 12px">
+        <div v-for="order in filteredOrders" :key="order.id" class="order-card" :style="order.is_flagged?'border-left:3px solid #ee0a24':''">
+          <div class="order-head">
+            <span class="order-title">{{order.listing_title||'未知商品'}}</span>
+            <span :class="['status-tag',order.status]">{{getOrderStatusText(order.status)}}</span>
+          </div>
+          <div class="order-row"><span class="label">买家</span><span>{{order.buyer_nickname||'匿名'}}</span></div>
+          <div class="order-row"><span class="label">时长</span><span>{{order.duration_hours}} 小时</span></div>
+          <div class="order-row"><span class="label">收入</span><span class="income">¥{{order.amount}}</span></div>
+          <div class="order-row"><span class="label">下单时间</span><span>{{formatTime(order.created_at)}}</span></div>
+          <div v-if="order.is_flagged" class="flag">⚠️ 可疑订单：{{order.flag_reason}}</div>
+          <div class="order-id">订单号：{{order.platform_order_id}}</div>
+        </div>
+      </div>
+      <div v-else class="empty-state"><div class="icon">📋</div><p>暂无订单记录</p></div>
+    </div>
 
-function startBrowserLogin(platform){
-  browserPlatform=platform;
-  const platformNames={uhaozu:'U号租',mima:'密马',xubei:'虚贝'};
-  document.getElementById('browser-login-title').textContent='远程登录 - '+platformNames[platform];
-  document.getElementById('browser-platform-select').style.display='none';
-  document.getElementById('browser-session-area').style.display='block';
-  showBrowserLoading('正在打开登录页...');
+    <!-- 统计 -->
+    <div v-if="page==='stats'">
+      <div class="page-header"><div class="title">数据统计</div><div class="subtitle">收益趋势 · 出租分析</div></div>
+      <div class="card">
+      <div class="tabs">
+        <div v-for="d in statDaysOptions" :key="d.value" class="tab-item" :class="{active:statsDays===d.value}" @click="statsDays=d.value;loadStats()">{{d.text}}</div>
+      </div>
+      </div>
+      <div class="card"><div class="card-title">💰 每日收益趋势</div><div ref="incomeChart" class="chart-container"></div></div>
+      <div class="card"><div class="card-title">📊 每日订单量</div><div ref="orderChart" class="chart-container"></div></div>
+      <div class="card">
+        <div class="card-title">📈 周期汇总</div>
+        <div class="stat-grid">
+          <div class="stat-item success"><div class="v">¥{{statsSummary.totalIncome}}</div><div class="l">总收益</div></div>
+          <div class="stat-item primary"><div class="v">{{statsSummary.totalOrders}}</div><div class="l">总订单</div></div>
+          <div class="stat-item warning"><div class="v">{{statsSummary.totalHours}}h</div><div class="l">总时长</div></div>
+          <div class="stat-item danger"><div class="v">{{statsSummary.abnormalOrders}}</div><div class="l">可疑订单</div></div>
+        </div>
+        <div class="avg-row">
+          <div class="avg-item"><span class="avg-label">日均收益</span><span class="avg-value">¥{{statsSummary.avgIncome}}</span></div>
+          <div class="avg-item"><span class="avg-label">日均订单</span><span class="avg-value">{{statsSummary.avgOrders}}</span></div>
+          <div class="avg-item"><span class="avg-label">客单价</span><span class="avg-value">¥{{statsSummary.avgPerOrder}}</span></div>
+        </div>
+      </div>
+    </div>
 
-  api('/api/browser/session',{method:'POST',body:JSON.stringify({platform:platform})}).then(d=>{
-    if(d.session_id){
-      browserSessionId=d.session_id;
-      updateBrowserScreenshot(d.screenshot);
-      hideBrowserLoading();
-      // 绑定点击事件
-      const img=document.getElementById('browser-screenshot');
-      img.onclick=browserImageClick;
-      showToast('登录页已打开，请在截图上操作登录');
-    }else{
-      showBrowserLoading('打开失败: '+(d.detail||'未知错误'));
-      setTimeout(()=>{
-        document.getElementById('browser-platform-select').style.display='block';
-        document.getElementById('browser-session-area').style.display='none';
-      },2000);
+    <!-- 设置 -->
+    <div v-if="page==='settings'">
+      <div class="page-header"><div class="title">我的</div><div class="subtitle">系统设置 · 关于</div></div>
+      <div class="card user-card">
+        <div class="avatar">👤</div>
+        <div><div class="uname">{{username}}</div><div class="urole">管理员</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🎮 支持平台</div>
+        <div class="platform-grid">
+          <div v-for="p in platforms" :key="p.key" class="pg-item">
+            <div class="pg-icon">{{p.icon}}</div>
+            <div class="pg-name">{{p.name}}</div>
+            <span :class="['status-tag',p.supported?'online':'offline']">{{p.supported?'已适配':'待适配'}}</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cell-row"><span class="cell-label">版本</span><span class="cell-value">v0.1.0</span></div>
+        <div class="cell-row"><span class="cell-label">技术栈</span><span class="cell-value">FastAPI + Vue3</span></div>
+      </div>
+      <div style="padding:16px"><button class="btn btn-danger btn-block" style="padding:14px;border-radius:24px" @click="logout">退出登录</button></div>
+    </div>
+
+    <!-- 底部导航 -->
+    <div class="tabbar">
+      <div class="tabbar-item" :class="{active:page==='home'}" @click="goPage('home')">
+        <div class="tabbar-icon">🏠</div><div class="tabbar-text">首页</div>
+      </div>
+      <div class="tabbar-item" :class="{active:page==='accounts'}" @click="goPage('accounts')">
+        <div class="tabbar-icon">👤</div><div class="tabbar-text">账号</div>
+      </div>
+      <div class="tabbar-item" :class="{active:page==='orders'}" @click="goPage('orders')">
+        <div class="tabbar-icon">📋</div><div class="tabbar-text">订单</div>
+      </div>
+      <div class="tabbar-item" :class="{active:page==='stats'}" @click="goPage('stats')">
+        <div class="tabbar-icon">📊</div><div class="tabbar-text">统计</div>
+      </div>
+      <div class="tabbar-item" :class="{active:page==='settings'}" @click="goPage('settings')">
+        <div class="tabbar-icon">⚙️</div><div class="tabbar-text">我的</div>
+      </div>
+    </div>
+
+    <!-- 添加账号弹窗 -->
+    <div v-if="showAddAccount" class="modal-mask" @click.self="showAddAccount=false">
+      <div class="modal-box">
+        <div class="modal-head"><span>添加租号账号</span><span class="modal-close" @click="showAddAccount=false">✕</span></div>
+        <div style="padding:16px 16px 24px">
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:13px;color:#646566;margin-bottom:6px">选择平台</label>
+            <div class="form-input" style="cursor:pointer;color:#969799" @click="showPlatformPicker=true">{{getPlatformName(addForm.platform)}} ▾</div>
+          </div>
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:13px;color:#646566;margin-bottom:6px">平台账号</label>
+            <input class="form-input" v-model="addForm.platform_username" placeholder="平台登录用户名/手机号" />
+          </div>
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:13px;color:#646566;margin-bottom:6px">平台密码（可选）</label>
+            <input class="form-input" type="password" v-model="addForm.platform_password" placeholder="平台登录密码" />
+          </div>
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:13px;color:#646566;margin-bottom:6px">备注名（可选）</label>
+            <input class="form-input" v-model="addForm.nickname" placeholder="方便识别的名称" />
+          </div>
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:13px;color:#646566;margin-bottom:6px">分组</label>
+            <input class="form-input" v-model="addForm.group_name" placeholder="默认分组" />
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-bottom:16px">
+            <span style="font-size:14px">自动托管</span>
+            <div style="width:44px;height:24px;border-radius:12px;cursor:pointer;position:relative;transition:background .2s"
+              :style="addForm.auto_manage?'background:#1989fa':'background:#dcdee0'" @click="addForm.auto_manage=!addForm.auto_manage">
+              <div style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"
+                :style="addForm.auto_manage?'left:22px':'left:2px'"></div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-block" style="padding:14px;border-radius:10px;font-size:16px" @click="doAddAccount">添加账号</button><button class="btn btn-primary btn-block" style="padding:14px;border-radius:10px;font-size:16px;margin-top:10px;background:#1989fa" @click="openBrowserLogin">🖥️ 浏览器登录（推荐）</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 平台选择弹窗 -->
+    <div v-if="showPlatformPicker" class="modal-mask" @click.self="showPlatformPicker=false">
+      <div class="modal-box" style="max-height:60vh">
+        <div class="modal-head"><span>选择平台</span><span class="modal-close" @click="showPlatformPicker=false">✕</span></div>
+        <div style="padding:8px 0">
+          <div v-for="p in platforms.filter(p=>p.supported)" :key="p.key"
+            style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;border-bottom:1px solid #f2f3f5"
+            @click="addForm.platform=p.key;showPlatformPicker=false">
+            <span style="font-size:24px">{{p.icon}}</span>
+            <span style="font-size:15px">{{p.name}}</span>
+            <span style="margin-left:auto;color:#07c160;font-size:12px">已适配</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 远程浏览器登录弹窗 -->
+    <div v-if="showBrowserLogin" class="modal-mask" @click.self="closeBrowserLogin">
+      <div class="modal-box" style="max-width:98vw;width:98vw;max-height:98vh;height:98vh;display:flex;flex-direction:column;padding:0">
+        <div class="modal-head"><span>远程浏览器登录</span><span class="modal-close" @click="closeBrowserLogin">✕</span></div>
+        <div style="padding:12px;flex:1;display:flex;flex-direction:column;overflow:hidden">
+          <!-- 平台选择 -->
+          <div v-if="!browserSessionId" style="margin-bottom:12px">
+            <p style="font-size:13px;color:#969799;margin-bottom:12px">选择平台，系统打开登录页后你自己操作登录，登录成功后点"登录完成"</p>
+            <div style="display:flex;gap:10px">
+              <button class="btn btn-outline" style="flex:1;padding:16px;font-size:15px" @click="startBrowserLogin('uhaozu')">U号租</button>
+              <button class="btn btn-outline" style="flex:1;padding:16px;font-size:15px" @click="startBrowserLogin('mima')">密马</button>
+              <button class="btn btn-outline" style="flex:1;padding:16px;font-size:15px" @click="startBrowserLogin('xubei')">虚贝</button>
+            </div>
+          </div>
+          <!-- 浏览器操作区 -->
+          <div v-if="browserSessionId" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+            <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap">
+              <input v-model="browserInputText" class="form-input" style="flex:1;min-width:100px;padding:8px" placeholder="输入文字后点输入" @keyup.enter="browserType" />
+              <button class="btn btn-outline" style="padding:8px 10px;font-size:13px" @click="browserType">输入</button>
+              <button class="btn btn-outline" style="padding:8px 10px;font-size:13px" @click="browserPressKey('Backspace')">⌫</button>
+              <button class="btn btn-outline" style="padding:8px 10px;font-size:13px" @click="browserPressKey('Enter')">⏎</button>
+              <button class="btn btn-outline" style="padding:8px 10px;font-size:13px" @click="browserZoomIn">🔍+</button>
+              <button class="btn btn-outline" style="padding:8px 10px;font-size:13px" @click="browserZoomOut">🔍-</button>
+              <button class="btn btn-outline" style="padding:8px 10px;font-size:13px" @click="browserRefresh">🔄</button>
+            </div>
+            <div id="browser-img-container" style="flex:1;overflow:auto;border:2px solid #e5e6eb;border-radius:8px;background:#f5f6fa;cursor:crosshair;position:relative" @click="browserClick">
+              <img id="browser-screenshot-img" :src="browserScreenshot" style="display:block;transform-origin:top left" :style="{width: (100/browserZoom) + '%', transform: 'scale(' + browserZoom + ')'}" alt="登录页截图" />
+              <div v-if="browserLoading" style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.85);display:flex;align-items:center;justify-content:center;font-size:15px;color:#666;z-index:10">{{browserLoadingText}}</div>
+            </div>
+            <div style="font-size:12px;color:#969799;margin-top:6px">💡 点击截图=鼠标点击 | 上方输入框输入文字 | 🔍+放大截图</div>
+            <div style="display:flex;gap:10px;margin-top:10px">
+              <button class="btn btn-outline" style="flex:1;padding:12px" @click="closeBrowserLogin">取消</button>
+              <button class="btn btn-primary" style="flex:2;padding:12px;background:#07c160;border-color:#07c160" @click="confirmBrowserLogin">✅ 登录完成</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Cookie导入弹窗 -->
+    <div v-if="showCookieImport" class="modal-mask" @click.self="showCookieImport=false">
+      <div class="modal-box">
+        <div class="modal-head"><span>导入Cookie</span><span class="modal-close" @click="showCookieImport=false">✕</span></div>
+        <div style="padding:16px">
+          <p style="font-size:12px;color:#969799;margin-bottom:12px">在浏览器登录U号租后，按F12→Application→Cookies，复制所有cookie粘贴到这里</p>
+          <textarea class="form-input" v-model="cookieInput" rows="6" placeholder="粘贴cookie，格式：name1=value1; name2=value2" style="resize:vertical"></textarea>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <button class="btn btn-block" style="padding:12px;border-radius:8px;background:#f2f3f5;color:#323233" @click="showCookieImport=false">取消</button>
+            <button class="btn btn-primary btn-block" style="padding:12px;border-radius:8px" @click="doImportCookie">导入</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Toast -->
+    <div v-if="toastMsg" class="toast">{{toastMsg}}</div>
+
+    <!-- Confirm -->
+    <div v-if="confirmShow" class="confirm-mask">
+      <div class="confirm-box">
+        <div class="confirm-title">{{confirmTitle}}</div>
+        <div class="confirm-msg">{{confirmMsg}}</div>
+        <div class="confirm-btns">
+          <div class="confirm-btn cancel" @click="confirmResolve(false)">取消</div>
+          <div class="confirm-btn ok" @click="confirmResolve(true)">确定</div>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
+
+createApp({
+  setup() {
+    const page = ref('login');
+    const username = ref(localStorage.getItem('xy_username') || '');
+    let token = localStorage.getItem('xy_token') || '';
+
+    const loginForm = reactive({ username: '', password: '' });
+    const loginLoading = ref(false);
+
+    const accounts = ref([]);
+    const platforms = ref([]);
+    const currentAccount = ref(null);
+    const listings = ref([]);
+    const accountGroups = ref([]);
+    const expandedGroups = reactive({});
+    const groupFilter = reactive({ game: '', partition: '', status: '', platform: '' });
+    const orders = ref([]);
+    const orderFilter = reactive({ status: '' });
+    const orderFilters = [
+      {text:'全部',value:''},{text:'进行中',value:'ongoing'},{text:'已完成',value:'completed'},
+      {text:'已取消',value:'cancelled'},{text:'待处理',value:'pending'}
+    ];
+
+    const overview = reactive({ today_income:0, today_orders:0, today_hours:0, week_income:0, week_orders:0, month_income:0, month_orders:0, total_accounts:0, online_accounts:0, total_listings:0, on_shelf_listings:0 });
+
+    const statsDays = ref('7');
+    const statDaysOptions = [{text:'近7天',value:'7'},{text:'近14天',value:'14'},{text:'近30天',value:'30'}];
+    const dailyStats = ref([]);
+    const statsSummary = reactive({ totalIncome:0, totalOrders:0, totalHours:0, abnormalOrders:0, avgIncome:0, avgOrders:0, avgPerOrder:0 });
+    const incomeChart = ref(null);
+    const orderChart = ref(null);
+    let incomeChartInst = null, orderChartInst = null;
+
+    const showAddAccount = ref(false);
+    const showPlatformPicker = ref(false);
+    const addForm = reactive({ platform:'uhaozu', platform_username:'', platform_password:'', nickname:'', group_name:'默认分组', auto_manage:true });
+    // 远程浏览器登录
+    const showBrowserLogin = ref(false);
+    const browserSessionId = ref('');
+    const browserPlatform = ref('');
+    const browserScreenshot = ref('');
+    const browserInputText = ref('');
+    const browserLoading = ref(false);
+    const browserLoadingText = ref('');
+    const browserZoom = ref(1.0);
+
+    function openBrowserLogin() {
+      showAddAccount.value = false;
+      showBrowserLogin.value = true;
+      browserZoom.value = 1.0;
+      browserScreenshot.value = '';
+      browserSessionId.value = '';
     }
-  }).catch(e=>{
-    showBrowserLoading('打开失败: '+e);
-    setTimeout(()=>{
-      document.getElementById('browser-platform-select').style.display='block';
-      document.getElementById('browser-session-area').style.display='none';
-    },2000);
-  });
-}
 
-function browserImageClick(e){
-  if(!browserSessionId)return;
-  const img=document.getElementById('browser-screenshot');
-  const rect=img.getBoundingClientRect();
-  // 计算实际显示宽度（考虑缩放）
-  const displayWidth=rect.width*browserZoom;
-  const displayHeight=rect.height*browserZoom;
-  const scaleX=img.naturalWidth/displayWidth;
-  const scaleY=img.naturalHeight/displayHeight;
-  // 考虑缩放原点在左上角，以及容器滚动
-  const container=document.getElementById('browser-image-container');
-  const scrollLeft=container.scrollLeft;
-  const scrollTop=container.scrollTop;
-  const x=Math.round((e.clientX-rect.left+scrollLeft)*scaleX);
-  const y=Math.round((e.clientY-rect.top+scrollTop)*scaleY);
-
-  showBrowserLoading('点击中...');
-  api('/api/browser/session/'+browserSessionId+'/click',{
-    method:'POST',body:JSON.stringify({x:x,y:y})
-  }).then(d=>{
-    if(d.screenshot){
-      updateBrowserScreenshot(d.screenshot);
+    async function startBrowserLogin(platform) {
+      browserPlatform.value = platform;
+      browserLoading.value = true;
+      browserLoadingText.value = '正在打开登录页...';
+      try {
+        const res = await fetch('/api/browser/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ platform })
+        });
+        const data = await res.json();
+        if (data.session_id) {
+          browserSessionId.value = data.session_id;
+          browserScreenshot.value = 'data:image/png;base64,' + data.screenshot;
+          showToast('登录页已打开，请在截图上操作登录');
+        } else {
+          showToast('打开失败: ' + (data.detail || '未知错误'));
+        }
+      } catch(e) {
+        showToast('打开失败: ' + e);
+      }
+      browserLoading.value = false;
     }
-    hideBrowserLoading();
-  }).catch(e=>{
-    hideBrowserLoading();
-    showToast('点击失败: '+e);
-  });
-}
 
-function browserZoomIn(){
-  browserZoom=Math.min(browserZoom+0.25,3.0);
-  applyBrowserZoom();
-}
-
-function browserZoomOut(){
-  browserZoom=Math.max(browserZoom-0.25,0.5);
-  applyBrowserZoom();
-}
-
-function applyBrowserZoom(){
-  const img=document.getElementById('browser-screenshot');
-  img.style.transform=`scale(${browserZoom})`;
-  img.style.width=(100/browserZoom)+'%';
-}
-
-function browserTypeText(){
-  if(!browserSessionId)return;
-  const text=document.getElementById('browser-input-text').value;
-  if(!text){showToast('请输入文字');return;}
-  showBrowserLoading('输入中...');
-  api('/api/browser/session/'+browserSessionId+'/type',{
-    method:'POST',body:JSON.stringify({text:text})
-  }).then(d=>{
-    if(d.screenshot){updateBrowserScreenshot(d.screenshot);}
-    document.getElementById('browser-input-text').value='';
-    hideBrowserLoading();
-  }).catch(e=>{
-    hideBrowserLoading();
-    showToast('输入失败: '+e);
-  });
-}
-
-function browserPressKey(key){
-  if(!browserSessionId)return;
-  showBrowserLoading('按键中...');
-  api('/api/browser/session/'+browserSessionId+'/press-key',{
-    method:'POST',body:JSON.stringify({key:key})
-  }).then(d=>{
-    if(d.screenshot){updateBrowserScreenshot(d.screenshot);}
-    hideBrowserLoading();
-  }).catch(e=>{
-    hideBrowserLoading();
-    showToast('按键失败: '+e);
-  });
-}
-
-function browserRefresh(){
-  if(!browserSessionId)return;
-  showBrowserLoading('刷新中...');
-  api('/api/browser/session/'+browserSessionId+'/screenshot').then(d=>{
-    if(d.screenshot){updateBrowserScreenshot(d.screenshot);}
-    hideBrowserLoading();
-  }).catch(e=>{
-    hideBrowserLoading();
-    showToast('刷新失败: '+e);
-  });
-}
-
-function confirmBrowserLogin(){
-  if(!browserSessionId)return;
-  if(!confirm('确认已经登录成功了吗？确认后系统会自动保存登录凭证并开始同步数据。'))return;
-
-  showBrowserLoading('保存登录凭证...');
-  api('/api/browser/session/'+browserSessionId+'/confirm-login',{
-    method:'POST',body:JSON.stringify({
-      nickname:browserPlatform+'账号',
-      group_name:'默认分组'
-    })
-  }).then(d=>{
-    if(d.success){
-      showToast('登录成功！已开始同步数据');
-      closeModal('modal-browser-login');
-      loadAccounts();
-      browserSessionId=null;
-    }else{
-      hideBrowserLoading();
-      showToast(d.detail||'保存失败');
+    async function browserClick(e) {
+      if (!browserSessionId.value) return;
+      const container = document.getElementById('browser-img-container');
+      const img = document.getElementById('browser-screenshot-img');
+      if (!container || !img) return;
+      const cRect = container.getBoundingClientRect();
+      const relX = e.clientX - cRect.left + container.scrollLeft;
+      const relY = e.clientY - cRect.top + container.scrollTop;
+      const scaleX = img.naturalWidth / (cRect.width * browserZoom.value);
+      const scaleY = img.naturalHeight / (cRect.height * browserZoom.value);
+      const x = Math.round(relX * scaleX);
+      const y = Math.round(relY * scaleY);
+      browserLoading.value = true;
+      browserLoadingText.value = '点击中...';
+      try {
+        const res = await fetch('/api/browser/session/' + browserSessionId.value + '/click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ x, y })
+        });
+        const data = await res.json();
+        if (data.screenshot) browserScreenshot.value = 'data:image/png;base64,' + data.screenshot;
+      } catch(e) {
+        showToast('点击失败: ' + e);
+      }
+      browserLoading.value = false;
     }
-  }).catch(e=>{
-    hideBrowserLoading();
-    showToast('保存失败: '+e);
-  });
-}
 
-function closeBrowserSession(){
-  if(browserSessionId){
-    api('/api/browser/session/'+browserSessionId,{method:'DELETE'}).catch(()=>{});
-    browserSessionId=null;
+    async function browserType() {
+      if (!browserSessionId.value || !browserInputText.value) return;
+      browserLoading.value = true;
+      browserLoadingText.value = '输入中...';
+      try {
+        const res = await fetch('/api/browser/session/' + browserSessionId.value + '/type', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ text: browserInputText.value })
+        });
+        const data = await res.json();
+        if (data.screenshot) browserScreenshot.value = 'data:image/png;base64,' + data.screenshot;
+        browserInputText.value = '';
+      } catch(e) {
+        showToast('输入失败: ' + e);
+      }
+      browserLoading.value = false;
+    }
+
+    async function browserPressKey(key) {
+      if (!browserSessionId.value) return;
+      browserLoading.value = true;
+      browserLoadingText.value = '按键中...';
+      try {
+        const res = await fetch('/api/browser/session/' + browserSessionId.value + '/press-key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ key })
+        });
+        const data = await res.json();
+        if (data.screenshot) browserScreenshot.value = 'data:image/png;base64,' + data.screenshot;
+      } catch(e) {
+        showToast('按键失败: ' + e);
+      }
+      browserLoading.value = false;
+    }
+
+    async function browserRefresh() {
+      if (!browserSessionId.value) return;
+      browserLoading.value = true;
+      browserLoadingText.value = '刷新中...';
+      try {
+        const res = await fetch('/api/browser/session/' + browserSessionId.value + '/screenshot', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (data.screenshot) browserScreenshot.value = 'data:image/png;base64,' + data.screenshot;
+      } catch(e) {
+        showToast('刷新失败: ' + e);
+      }
+      browserLoading.value = false;
+    }
+
+    function browserZoomIn() { browserZoom.value = Math.min(browserZoom.value + 0.25, 3.0); }
+    function browserZoomOut() { browserZoom.value = Math.max(browserZoom.value - 0.25, 0.5); }
+
+    async function confirmBrowserLogin() {
+      if (!browserSessionId.value) return;
+      if (!confirm('确认已经登录成功了吗？确认后系统会自动保存登录凭证并开始同步数据。')) return;
+      browserLoading.value = true;
+      browserLoadingText.value = '保存登录凭证...';
+      try {
+        const res = await fetch('/api/browser/session/' + browserSessionId.value + '/confirm-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ nickname: browserPlatform.value + '账号', group_name: '默认分组' })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('登录成功！已开始同步数据');
+          showBrowserLogin.value = false;
+          browserSessionId.value = '';
+          loadAll();
+        } else {
+          showToast(data.detail || '保存失败');
+        }
+      } catch(e) {
+        showToast('保存失败: ' + e);
+      }
+      browserLoading.value = false;
+    }
+
+    function closeBrowserLogin() {
+      if (browserSessionId.value) {
+        fetch('/api/browser/session/' + browserSessionId.value, {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + token }
+        }).catch(()=>{});
+      }
+      showBrowserLogin.value = false;
+      browserSessionId.value = '';
+    }
+
+    const toastMsg = ref('');
+    let toastTimer = null;
+    function showToast(msg) {
+      toastMsg.value = msg;
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=>{ toastMsg.value = ''; }, 2000);
+    }
+
+    const confirmShow = ref(false);
+    const confirmTitle = ref('');
+    const confirmMsg = ref('');
+    let confirmCallback = null;
+    function showConfirm(title, msg) {
+      return new Promise((resolve) => {
+        confirmTitle.value = title;
+        confirmMsg.value = msg;
+        confirmShow.value = true;
+        confirmCallback = resolve;
+      });
+    }
+    function confirmResolve(val) {
+      confirmShow.value = false;
+      if (confirmCallback) { confirmCallback(val); confirmCallback = null; }
+    }
+
+    const todayStr = new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+    const filteredOrders = computed(() => orders.value.filter(o => !orderFilter.status || o.status === orderFilter.status));
+
+    function parseGameName(gameName) {
+      if (!gameName) return { game: '未知', partition: '无区服' };
+      const parts = gameName.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return { game: parts[0], partition: parts.slice(1).join(' ') };
+      }
+      return { game: parts[0], partition: '无区服' };
+    }
+
+    const gameOptions = computed(() => {
+      const games = new Set();
+      for (const g of accountGroups.value) {
+        for (const item of g.listings) {
+          games.add(parseGameName(item.game_name).game);
+        }
+      }
+      return Array.from(games).sort();
+    });
+
+    const partitionOptions = computed(() => {
+      const parts = new Set();
+      for (const g of accountGroups.value) {
+        for (const item of g.listings) {
+          const p = parseGameName(item.game_name).partition;
+          if (p && p !== '无区服') parts.add(p);
+        }
+      }
+      return Array.from(parts).sort();
+    });
+
+    const platformOptions = computed(() => {
+      return platforms.value.filter(p => p.supported).map(p => ({ key: p.key, name: p.name }));
+    });
+
+    const filteredAccountGroups = computed(() => {
+      if (!groupFilter.game && !groupFilter.partition && !groupFilter.status && !groupFilter.platform) return accountGroups.value;
+      return accountGroups.value.map(g => {
+        const filtered = g.listings.filter(item => {
+          const parsed = parseGameName(item.game_name);
+          if (groupFilter.game && parsed.game !== groupFilter.game) return false;
+          if (groupFilter.partition && parsed.partition !== groupFilter.partition) return false;
+          if (groupFilter.status) {
+            if (groupFilter.status === 'rented') {
+              if (!item.is_rented) return false;
+            } else if (item.status !== groupFilter.status) return false;
+          }
+          if (groupFilter.platform && item.platform !== groupFilter.platform) return false;
+          return true;
+        });
+        if (filtered.length === 0) return null;
+        return {
+          ...g,
+          listings: filtered,
+          total_count: filtered.length,
+          on_shelf_count: filtered.filter(i => i.status === 'on_shelf').length,
+          rented_count: filtered.filter(i => i.is_rented).length,
+          rented_titles: filtered.filter(i => i.is_rented).map(i => i.title.slice(0, 30)),
+        };
+      }).filter(g => g !== null);
+    });
+
+    async function api(url, options={}) {
+      const headers = { 'Content-Type': 'application/json', ...(options.headers||{}) };
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      try {
+        const res = await fetch(url, { ...options, headers, body: options.body ? JSON.stringify(options.body) : undefined });
+        if (res.status === 401) { token=''; localStorage.removeItem('xy_token'); page.value='login'; throw new Error('未登录'); }
+        return await res.json();
+      } catch(e) {
+        if (e.message !== '未登录') showToast('网络错误');
+        throw e;
+      }
+    }
+
+    async function doLogin() {
+      if (!loginForm.username || !loginForm.password) { showToast('请输入用户名和密码'); return; }
+      loginLoading.value = true;
+      try {
+        const res = await api('/api/auth/login', { method:'POST', body: loginForm });
+        if (res.access_token) {
+          token = res.access_token;
+          username.value = res.username;
+          localStorage.setItem('xy_token', token);
+          localStorage.setItem('xy_username', res.username);
+          page.value = 'home';
+          loadAll();
+        } else {
+          showToast(res.detail || '登录失败');
+        }
+      } catch(e) {}
+      finally { loginLoading.value = false; }
+    }
+
+    function logout() {
+      token=''; username.value=''; localStorage.removeItem('xy_token'); localStorage.removeItem('xy_username');
+      page.value='login';
+    }
+
+    function goPage(p) {
+      page.value = p;
+      window.scrollTo(0, 0);
+      if (p==='home') loadOverview();
+      if (p==='accounts') loadAccounts();
+      if (p==='orders') loadOrders();
+      if (p==='stats') loadStats();
+      if (p==='accountGroups') loadAccountGroups();
+    }
+
+    async function loadPlatforms() { platforms.value = await api('/api/platforms'); }
+    async function loadAccounts() { accounts.value = await api('/api/accounts'); }
+    async function loadOverview() { Object.assign(overview, await api('/api/stats/overview')); }
+    async function loadOrders() { orders.value = await api('/api/orders?page_size=100'); }
+
+    async function loadAll() {
+      await Promise.all([loadPlatforms(), loadAccounts(), loadOverview(), loadOrders()]);
+    }
+
+    function openAccount(acc) {
+      currentAccount.value = acc;
+      page.value = 'accountDetail';
+      loadListings();
+    }
+
+    async function loadListings() {
+      if (!currentAccount.value) return;
+      listings.value = await api(`/api/accounts/${currentAccount.value.id}/listings`);
+    }
+
+    async function loginAccount(acc) {
+      try {
+        await showConfirm('账号登录', `确定要登录「${acc.nickname||acc.platform_username}」吗？`);
+        const res = await api(`/api/accounts/${acc.id}/login`, { method:'POST', body:{} });
+        showToast(res.message || '登录任务已提交');
+        setTimeout(()=>{ loadAccounts(); if(currentAccount.value&&currentAccount.value.id===acc.id) currentAccount.value.status='online'; }, 2000);
+      } catch(e) {}
+    }
+
+    async function syncAccount(acc) {
+      try {
+        await api(`/api/accounts/${acc.id}/sync`, { method:'POST' });
+        showToast('同步任务已启动');
+        setTimeout(()=>{ loadAccounts(); loadListings(); loadOverview(); }, 3000);
+      } catch(e) {}
+    }
+
+    async function toggleManage(acc) {
+      try {
+        await api(`/api/accounts/${acc.id}`, { method:'PUT', body:{ auto_manage: !acc.auto_manage } });
+        showToast(acc.auto_manage ? '已停止托管' : '已开启托管');
+        loadAccounts();
+      } catch(e) {}
+    }
+
+    async function deleteAccount(acc) {
+      try {
+        await showConfirm('删除账号', '确定要删除这个账号吗？');
+        await api(`/api/accounts/${acc.id}`, { method:'DELETE' });
+        showToast('已删除');
+        goPage('accounts');
+      } catch(e) {}
+    }
+
+    async function listingAction(item, action) {
+      try {
+        const ok = await showConfirm(action==='onshelf'?'上架确认':'下架确认',
+          `确定要${action==='onshelf'?'上架':'下架'}「${item.title.slice(0,30)}」吗？`);
+        if (!ok) return;
+        await api(`/api/accounts/${currentAccount.value.id}/listings/${item.id}/action`, { method:'POST', body:{ action } });
+        showToast(action==='onshelf'?'上架成功':'下架成功');
+        loadListings();
+      } catch(e) {}
+    }
+
+    async function editAccountId(item) {
+      const input = prompt('设置游戏账号标识（如QQ号，用于跨平台冲突检测）：', item.account_identifier || '');
+      if (input === null) return;
+      try {
+        await api(`/api/accounts/${currentAccount.value.id}/listings/${item.id}`, { method:'PUT', body:{ account_identifier: input.trim() || null } });
+        showToast(input.trim() ? '账号标识已设置' : '账号标识已清除');
+        loadListings();
+      } catch(e) {}
+    }
+
+    function isConflict(item) {
+      if (!item.account_identifier || !item.status || item.status !== 'on_shelf') return false;
+      // 检查其他账号下是否有同标识的在售商品
+      for (const acc of accounts.value) {
+        if (acc.id === currentAccount.value.id) continue;
+        // 这里简化判断: 如果全局有同标识的ongoing订单就算冲突
+      }
+      // 检查是否有ongoing订单对应同标识商品
+      const ongoingOrders = orders.value.filter(o => o.status === 'ongoing');
+      for (const order of ongoingOrders) {
+        // 通过订单标题模糊匹配商品
+        if (order.listing_title && item.title) {
+          const ot = order.listing_title.slice(0, 15).toLowerCase();
+          const it = item.title.slice(0, 15).toLowerCase();
+          if (ot && it && (ot.includes(it) || it.includes(ot))) return true;
+        }
+      }
+      return false;
+    }
+
+    async function runConflictCheck() {
+      try {
+        showToast('正在检测跨平台冲突...');
+        const res = await api('/api/accounts/conflict-check', { method:'POST' });
+        if (res.code === 0) {
+          showToast(res.message || '冲突检测完成');
+          loadListings();
+          loadAccounts();
+          if (page.value === 'accountGroups') loadAccountGroups();
+        } else {
+          showToast('冲突检测失败');
+        }
+      } catch(e) { showToast('冲突检测失败'); }
+    }
+
+    async function loadAccountGroups() {
+      try {
+        accountGroups.value = await api('/api/accounts/listings/all');
+      } catch(e) {}
+    }
+
+    function toggleGroup(key) {
+      expandedGroups[key] = !expandedGroups[key];
+    }
+
+    async function groupListingAction(item, action) {
+      try {
+        const ok = await showConfirm(action==='onshelf'?'上架确认':'下架确认',
+          `确定要${action==='onshelf'?'上架':'下架'}「${item.title.slice(0,30)}」吗？\n平台：${getPlatformName(item.platform)}`);
+        if (!ok) return;
+        await api(`/api/accounts/${item.account_id}/listings/${item.id}/action`, { method:'POST', body:{ action } });
+        showToast(action==='onshelf'?'上架成功':'下架成功');
+        loadAccountGroups();
+        loadOverview();
+      } catch(e) {}
+    }
+
+    async function editRemark(item) {
+      const input = prompt('输入备注（方便自己识别，如：大号、有防沉迷、不要租给小白等）：', item.remark || '');
+      if (input === null) return;
+      try {
+        await api(`/api/accounts/${item.account_id}/listings/${item.id}`, { method:'PUT', body:{ remark: input.trim() || null } });
+        showToast(input.trim() ? '备注已保存' : '备注已清除');
+        loadAccountGroups();
+      } catch(e) {}
+    }
+
+    async function doAddAccount() {
+      if (!addForm.platform_username) { showToast('请输入平台账号'); return; }
+      try {
+        await api('/api/accounts', { method:'POST', body: addForm });
+        showToast('添加成功');
+        showAddAccount.value = false;
+        Object.assign(addForm, { platform:'uhaozu', platform_username:'', platform_password:'', nickname:'', group_name:'默认分组', auto_manage:true });
+        loadAccounts();
+      } catch(e) {}
+    }
+
+    async function syncAll() {
+      if (!accounts.value.length) { showToast('暂无账号'); return; }
+      showToast(`已触发 ${accounts.value.length} 个账号同步`);
+      for (const acc of accounts.value) {
+        try { await api(`/api/accounts/${acc.id}/sync`, { method:'POST' }); } catch(e) {}
+      }
+    }
+
+    async function loadStats() {
+      dailyStats.value = await api(`/api/stats/daily?days=${statsDays.value}`);
+      const data = dailyStats.value;
+      const days = data.length || 1;
+      statsSummary.totalIncome = data.reduce((s,d)=>s+d.total_income,0).toFixed(2);
+      statsSummary.totalOrders = data.reduce((s,d)=>s+d.total_orders,0);
+      statsSummary.totalHours = data.reduce((s,d)=>s+d.total_hours,0).toFixed(1);
+      statsSummary.abnormalOrders = data.reduce((s,d)=>s+d.abnormal_orders,0);
+      statsSummary.avgIncome = (statsSummary.totalIncome/days).toFixed(2);
+      statsSummary.avgOrders = (statsSummary.totalOrders/days).toFixed(1);
+      statsSummary.avgPerOrder = statsSummary.totalOrders>0 ? (statsSummary.totalIncome/statsSummary.totalOrders).toFixed(2) : 0;
+      await nextTick();
+      renderCharts();
+    }
+
+    function renderCharts() {
+      const dates = dailyStats.value.map(d=>d.date.slice(5));
+      const incomes = dailyStats.value.map(d=>d.total_income);
+      const orderCounts = dailyStats.value.map(d=>d.total_orders);
+
+      if (incomeChart.value) {
+        if (incomeChartInst) incomeChartInst.dispose();
+        incomeChartInst = echarts.init(incomeChart.value);
+        incomeChartInst.setOption({
+          tooltip:{trigger:'axis'}, grid:{left:40,right:20,top:20,bottom:30},
+          xAxis:{type:'category',data:dates,axisLabel:{fontSize:10,color:'#969799'}},
+          yAxis:{type:'value',axisLabel:{fontSize:10,color:'#969799'},splitLine:{lineStyle:{color:'#f2f3f5'}}},
+          series:[{data:incomes,type:'line',smooth:true,symbol:'circle',symbolSize:6,
+            lineStyle:{color:'#07c160',width:2},itemStyle:{color:'#07c160'},
+            areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(7,193,96,0.3)'},{offset:1,color:'rgba(7,193,96,0.02)'}])}}]
+        });
+      }
+      if (orderChart.value) {
+        if (orderChartInst) orderChartInst.dispose();
+        orderChartInst = echarts.init(orderChart.value);
+        orderChartInst.setOption({
+          tooltip:{trigger:'axis'}, grid:{left:40,right:20,top:20,bottom:30},
+          xAxis:{type:'category',data:dates,axisLabel:{fontSize:10,color:'#969799'}},
+          yAxis:{type:'value',axisLabel:{fontSize:10,color:'#969799'},splitLine:{lineStyle:{color:'#f2f3f5'}}},
+          series:[{data:orderCounts,type:'bar',barWidth:'50%',
+            itemStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#1989fa'},{offset:1,color:'rgba(25,137,250,0.4)'}]),borderRadius:[4,4,0,0]}}]
+        });
+      }
+    }
+
+    function getPlatformIcon(key) { const p = platforms.value.find(p=>p.key===key); return p?p.icon:'📱'; }
+    function getPlatformName(key) { const p = platforms.value.find(p=>p.key===key); return p?p.name:key; }
+    function getStatusText(s) { return ({online:'在线',offline:'离线',error:'异常',banned:'封禁'})[s]||s; }
+    function getListingStatusText(s) { return ({on_shelf:'上架中',off_shelf:'已下架',rented:'出租中',maintenance:'维护中'})[s]||s; }
+    function getOrderStatusText(s) { return ({pending:'待处理',ongoing:'进行中',completed:'已完成',cancelled:'已取消',refunded:'已退款',abnormal:'异常'})[s]||s; }
+    function formatTime(t) { return t ? new Date(t).toLocaleString('zh-CN') : '-'; }
+
+    onMounted(() => {
+      if (token) { page.value = 'home'; loadAll(); }
+    });
+
+    return {
+      page, username, loginForm, loginLoading, doLogin, logout, goPage,
+      accounts, platforms, currentAccount, listings, orders, orderFilter, orderFilters, filteredOrders,
+      accountGroups, expandedGroups, loadAccountGroups, toggleGroup, groupListingAction, editRemark,
+      groupFilter, gameOptions, partitionOptions, filteredAccountGroups, platformOptions,
+      overview, statsDays, statDaysOptions, dailyStats, statsSummary, incomeChart, orderChart, loadStats,
+      showBrowserLogin, browserSessionId, browserPlatform, browserScreenshot, browserInputText, browserLoading, browserLoadingText, browserZoom, openBrowserLogin, startBrowserLogin, browserClick, browserType, browserPressKey, browserRefresh, browserZoomIn, browserZoomOut, confirmBrowserLogin, closeBrowserLogin, showAddAccount, showPlatformPicker, addForm, doAddAccount,
+      openAccount, loadListings, loginAccount, syncAccount, toggleManage, deleteAccount, listingAction, syncAll,
+      editAccountId, isConflict, runConflictCheck,
+      todayStr, getPlatformIcon, getPlatformName, getStatusText, getListingStatusText, getOrderStatusText, formatTime,
+      toastMsg, confirmShow, confirmTitle, confirmMsg, confirmResolve
+    };
   }
-  closeModal('modal-browser-login');
-}
-
-function updateBrowserScreenshot(base64){
-  const img=document.getElementById('browser-screenshot');
-  img.src='data:image/png;base64,'+base64;
-  // 保持缩放
-  img.onload=function(){
-    applyBrowserZoom();
-  };
-}
-
-function showBrowserLoading(text){
-  const el=document.getElementById('browser-loading');
-  el.textContent=text||'加载中...';
-  el.style.display='flex';
-}
-
-function hideBrowserLoading(){
-  document.getElementById('browser-loading').style.display='none';
-}
-
-// 初始化
-if(token){switchPage('home');}
-else{switchPage('login');}
+}).mount('#app');
 </script>
 </body>
 </html>
