@@ -149,16 +149,17 @@ public class LoginActivity extends AppCompatActivity {
                 if (cookies == null) cookies = "";
 
                 // 尝试从localStorage获取token（密马用）
-                String token = "";
+                final String finalCookies = cookies;
+                final String finalCurrentUrl = currentUrl;
                 try {
                     webView.evaluateJavascript(
                         "(function() { try { for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k.toLowerCase().indexOf('token')>=0||k.toLowerCase().indexOf('jwt')>=0)return localStorage.getItem(k);} } catch(e){} return ''; })()",
                         value -> {
                             String t = value.replace("\"", "").replace("\"", "");
                             if (!t.equals("null") && !t.isEmpty()) {
-                                saveToApi(cookies, t, currentUrl);
+                                saveToApi(finalCookies, t, finalCurrentUrl);
                             } else {
-                                saveToApi(cookies, "", currentUrl);
+                                saveToApi(finalCookies, "", finalCurrentUrl);
                             }
                         }
                     );
