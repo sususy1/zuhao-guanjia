@@ -83,9 +83,19 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void startNativeLogin(String platform) {
             runOnUiThread(() -> {
-                Intent intent = new Intent(MainActivity.this, LoginActivity.class);
-                intent.putExtra("platform", platform);
-                startActivityForResult(intent, 1001);
+                // 先从H5的localStorage中读取用户登录token，传给LoginActivity
+                webView.evaluateJavascript(
+                    "(function() { return localStorage.getItem('token') || localStorage.getItem('auth_token') || ''; })()",
+                    value -> {
+                        String token = value.replace("\"", "").replace("\"", "");
+                        if (token.equals("null")) token = "";
+                        
+                        Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+                        intent.putExtra("platform", platform);
+                        intent.putExtra("auth_token", token);
+                        startActivityForResult(intent, 1001);
+                    }
+                );
             });
         }
 
