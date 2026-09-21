@@ -260,3 +260,91 @@ def get_supported_platforms(current_user: models.User = Depends(get_current_user
             {"key": "xubei", "name": "虚贝", "login_url": PLATFORM_LOGIN_URLS["xubei"]},
         ]
     }
+
+
+class NativeLoginRequest(BaseModel):
+    platform: str
+    cookies: str = ""
+    token: str = ""
+    current_url: Optional[str] = ""
+    nickname: Optional[str] = None
+
+
+@router.post("/native-login")
+def native_login(data: NativeLoginRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """App原生WebView登录后保存凭证（用户在App内直接操作登录，零延迟）"""
+    try:
+        platform = data.platform
+        if platform not in PLATFORM_LOGIN_URLS:
+            raise HTTPException(status_code=400, detail=f"不支持的平台: {platform}")
+
+        cookies = data.cookies or ""
+        token = data.token or ""
+
+        if not cookies and not token:
+            raise HTTPException(status_code=400, detail="未获取到登录凭证（Cookie或Token），请确认已登录成功")
+
+        # 从Cookie中提取用户名（用于显示）
+        username = data.nickname or f"{platform}账号"
+        if cookies:
+            import re
+            for pattern in [r'username=([^;]+)', r'user_name=([^;]+)', r'uname=([^;]+)', r'account=([^;]+)', r'mobile=([^;]+)']:
+                m = re.search(pattern, cookies)
+                if m:
+                    username = m.group(1)
+                    break
+
+        # 查找是否已有该平台的账号
+        account = db.query(models.RentalAccount).filter(
+            models.RentalAccount.user_id == current_user.id,
+            models.RentalAccount.platform == platform
+        ).first()
+
+        if not account:
+            account = models.RentalAccount(
+                user_id=current_user.id,
+                platform=platform,
+                platform_username=username,
+                platform_password="",
+                nickname=data.nickname or username,
+                group_name="默认分组",
+                cookie_data=cookies if cookies else None,
+                token_data=token if token else None,
+                status="online",
+            )
+            db.add(account)
+            logger.info(f"原生登录创建新账号: platform={platform}, username={username}")
+        else:
+            if cookies:
+                account.cookie_data = cookies
+            if token:
+                account.token_data = token
+            account.platform_username = username
+            account.status = "online"
+            account.error_message = None
+            logger.info(f"原生登录更新账号: id={account.id}, platform={platform}")
+
+        db.commit()
+        db.refresh(account)
+
+        # 启动后台同步
+        import threading
+        from .accounts import _sync_account_background
+        thread = threading.Thread(target=_sync_account_background, args=(account.id,), daemon=True)
+        thread.start()
+
+        return {
+            "success": True,
+            "message": "登录成功，已保存凭证并开始同步数据",
+            "account_id": account.id,
+            "platform": platform,
+            "username": username,
+            "has_cookie": bool(cookies),
+            "has_token": bool(token),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"原生登录保存失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
