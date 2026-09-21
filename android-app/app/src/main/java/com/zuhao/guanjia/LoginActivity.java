@@ -146,9 +146,34 @@ public class LoginActivity extends AppCompatActivity {
                 String currentUrl = webView.getUrl();
                 if (currentUrl == null) currentUrl = loginUrl;
 
-                // 获取Cookie
+                // 获取Cookie - 从多个域名获取，确保拿到所有cookie
                 CookieManager cookieManager = CookieManager.getInstance();
-                String cookies = cookieManager.getCookie(currentUrl);
+                cookieManager.flush(); // 确保cookie写入磁盘
+                
+                StringBuilder allCookies = new StringBuilder();
+                
+                // 1. 当前URL的cookie
+                String currentCookies = cookieManager.getCookie(currentUrl);
+                if (currentCookies != null && !currentCookies.isEmpty()) {
+                    allCookies.append(currentCookies);
+                }
+                
+                // 2. 各个平台主域名的cookie
+                String[] domains = {
+                    "https://www.uhaozu.com",
+                    "https://www.mimaapp.com", 
+                    "https://passport.xubei.com",
+                    "https://user-server.xubei.com"
+                };
+                for (String domain : domains) {
+                    String domainCookies = cookieManager.getCookie(domain);
+                    if (domainCookies != null && !domainCookies.isEmpty()) {
+                        if (allCookies.length() > 0) allCookies.append("; ");
+                        allCookies.append(domainCookies);
+                    }
+                }
+                
+                String cookies = allCookies.toString();
                 if (cookies == null) cookies = "";
 
                 final String finalCookies = cookies;
