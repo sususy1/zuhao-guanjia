@@ -206,14 +206,15 @@ public class LoginActivity extends AppCompatActivity {
                         }
                     );
                 } catch (Exception e) {
-                runOnUiThread(() -> {
-                    isSaving = false;
-                    btnComplete.setEnabled(true);
-                    btnComplete.setText("登录完成");
-                    Toast.makeText(LoginActivity.this, "保存失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                });
-            }
-        });
+                    runOnUiThread(() -> {
+                        isSaving = false;
+                        btnComplete.setEnabled(true);
+                        btnComplete.setText("登录完成");
+                        Toast.makeText(LoginActivity.this, "保存失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    });
+                }
+            });
+        }, 2000); // 延迟2秒
     }
 
     private void saveToApi(String cookies, String token, String currentUrl) {
