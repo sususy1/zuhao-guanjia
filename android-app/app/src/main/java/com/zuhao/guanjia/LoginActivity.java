@@ -1,60 +1,37 @@
 package com.zuhao.guanjia;
 
-import android.app.AlertDialog;
-import android.content.DialogInterface;
-import android.graphics.Bitmap;
+import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
-import android.webkit.CookieManager;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebSettings;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import androidx.appcompat.app.AppCompatActivity;
-
 import org.json.JSONObject;
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.Map;
+import java.net.URLEncoder;
 
-public class LoginActivity extends AppCompatActivity {
-
-    private static final String API_BASE = "http://43.129.201.203";
-
-    private static final Map<String, String> PLATFORM_URLS = new HashMap<>();
-    static {
-        PLATFORM_URLS.put("uhaozu", "https://www.uhaozu.com/login");
-        PLATFORM_URLS.put("mima", "https://www.mimaapp.com/");
-        PLATFORM_URLS.put("xubei", "https://passport.xubei.com/");
-    }
-
-    private static final Map<String, String> PLATFORM_NAMES = new HashMap<>();
-    static {
-        PLATFORM_NAMES.put("uhaozu", "U号租");
-        PLATFORM_NAMES.put("mima", "密马");
-        PLATFORM_NAMES.put("xubei", "虚贝");
-    }
-
+public class LoginActivity extends Activity {
     private WebView webView;
-    private Button btnCancel;
-    private Button btnComplete;
-    private TextView tvTitle;
+    private Button btnComplete, btnRefresh;
+    private ProgressBar progressBar;
+    private TextView tvStatus;
     private String platform;
     private String loginUrl;
-    private String authToken = "";
+    private String API_BASE;
+    private String authToken;
     private boolean isSaving = false;
 
     @Override
@@ -63,210 +40,182 @@ public class LoginActivity extends AppCompatActivity {
         setContentView(R.layout.activity_login);
 
         platform = getIntent().getStringExtra("platform");
-        loginUrl = PLATFORM_URLS.get(platform);
-        authToken = getIntent().getStringExtra("auth_token") != null ? getIntent().getStringExtra("auth_token") : "";
-
-        if (loginUrl == null) {
-            Toast.makeText(this, "不支持的平台", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
+        loginUrl = getIntent().getStringExtra("login_url");
+        API_BASE = getIntent().getStringExtra("api_base");
+        authToken = getIntent().getStringExtra("token");
 
         webView = findViewById(R.id.webView);
-        btnCancel = findViewById(R.id.btnCancel);
         btnComplete = findViewById(R.id.btnComplete);
-        tvTitle = findViewById(R.id.tvTitle);
+        btnRefresh = findViewById(R.id.btnRefresh);
+        progressBar = findViewById(R.id.progressBar);
+        tvStatus = findViewById(R.id.tvStatus);
 
-        tvTitle.setText(PLATFORM_NAMES.get(platform) + " 登录");
+        initWebView();
+        loadLoginUrl();
 
-        setupWebView();
-        webView.loadUrl(loginUrl);
-
-        btnCancel.setOnClickListener(v -> finish());
-
-        btnComplete.setOnClickListener(v -> {
-            if (isSaving) return;
-            confirmAndSave();
-        });
+        btnComplete.setOnClickListener(v -> syncFromWebView());
+        btnRefresh.setOnClickListener(v -> webView.reload());
     }
 
-    private void setupWebView() {
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
-        settings.setLoadWithOverviewMode(true);
-        settings.setUseWideViewPort(true);
-        settings.setSupportZoom(true);
-        settings.setBuiltInZoomControls(true);
-        settings.setDisplayZoomControls(false);
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+    @SuppressLint("SetJavaScriptEnabled")
+    private void initWebView() {
+        webView.getSettings().setJavaScriptEnabled(true);
+        webView.getSettings().setDomStorageEnabled(true);
+        webView.getSettings().setAllowFileAccess(true);
+        webView.getSettings().setAllowContentAccess(true);
+        webView.getSettings().setLoadWithOverviewMode(true);
+        webView.getSettings().setUseWideViewPort(true);
+        webView.getSettings().setBuiltInZoomControls(true);
+        webView.getSettings().setDisplayZoomControls(false);
 
-        // 接受第三方Cookie（重要！）
-        CookieManager.getInstance().setAcceptCookie(true);
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
+        // 加JS接口，用来接收WebView传来的数据
+        webView.addJavascriptInterface(new JsInterface(), "AndroidBridge");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
-            public void onPageStarted(WebView view, String url, Bitmap favicon) {
-            }
-
-            @Override
             public void onPageFinished(WebView view, String url) {
-            }
-
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return false;
+                super.onPageFinished(view, url);
+                progressBar.setVisibility(View.GONE);
+                tvStatus.setText("登录页已加载，请登录后点\"完成同步\"");
             }
         });
-
-        webView.setWebChromeClient(new WebChromeClient());
     }
 
-    private void confirmAndSave() {
-        new AlertDialog.Builder(this)
-            .setTitle("确认登录")
-            .setMessage("确认已经在" + PLATFORM_NAMES.get(platform) + "登录成功了吗？确认后系统会自动保存登录凭证。")
-            .setPositiveButton("确认登录", (dialog, which) -> saveCredentials())
-            .setNegativeButton("再等等", null)
-            .show();
+    private void loadLoginUrl() {
+        progressBar.setVisibility(View.VISIBLE);
+        webView.loadUrl(loginUrl);
     }
 
-    private void saveCredentials() {
+    // JS接口，WebView里的JS可以调用这个方法把数据传回来
+    public class JsInterface {
+        @JavascriptInterface
+        public void onDataReady(String jsonData) {
+            Log.d("LoginActivity", "收到WebView传来的数据，长度: " + jsonData.length());
+            runOnUiThread(() -> {
+                tvStatus.setText("正在上传数据到服务器...");
+            });
+            // 把数据上传到服务器
+            new Thread(() -> {
+                try {
+                    uploadDataToServer(jsonData);
+                } catch (Exception e) {
+                    runOnUiThread(() -> {
+                        Toast.makeText(LoginActivity.this, "上传失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        tvStatus.setText("同步失败，请重试");
+                        isSaving = false;
+                        btnComplete.setEnabled(true);
+                        btnComplete.setText("完成同步");
+                    });
+                }
+            }).start();
+        }
+
+        @JavascriptInterface
+        public void onSyncError(String message) {
+            runOnUiThread(() -> {
+                Toast.makeText(LoginActivity.this, "同步失败: " + message, Toast.LENGTH_LONG).show();
+                tvStatus.setText("同步失败，请重试");
+                isSaving = false;
+                btnComplete.setEnabled(true);
+                btnComplete.setText("完成同步");
+            });
+        }
+    }
+
+    private void syncFromWebView() {
+        if (isSaving) return;
         isSaving = true;
         btnComplete.setEnabled(false);
-        btnComplete.setText("保存中...");
+        btnComplete.setText("同步中...");
+        tvStatus.setText("正在获取商品数据...");
 
-        // 延迟2秒，等cookie完全写入
-        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-        // WebView操作必须在UI线程执行！
-        runOnUiThread(() -> {
-            try {
-                // 获取当前页面URL
-                String currentUrl = webView.getUrl();
-                if (currentUrl == null) currentUrl = loginUrl;
+        // 根据不同平台，注入不同的JS代码
+        String jsCode = "";
+        if ("uhaozu".equals(platform)) {
+            // U号租：调用商品列表API
+            jsCode = "(function() {" +
+                "fetch('/goods/usercenter/list', {" +
+                "  method: 'POST'," +
+                "  headers: {'Content-Type': 'application/json;charset=utf-8'}," +
+                "  body: JSON.stringify({page:1, pageSize:200, isViewAuthStatus:true})," +
+                "  credentials: 'include'" +
+                "})" +
+                ".then(r => r.json())" +
+                ".then(data => {" +
+                "  AndroidBridge.onDataReady(JSON.stringify(data));" +
+                "})" +
+                ".catch(e => AndroidBridge.onSyncError(e.message));" +
+                "})();";
+        } else if ("mima".equals(platform)) {
+            // 密马：先试试这个接口
+            jsCode = "(function() {" +
+                "fetch('/api/goods/list?page=1&pageSize=200', {" +
+                "  credentials: 'include'" +
+                "})" +
+                ".then(r => r.json())" +
+                ".then(data => {" +
+                "  AndroidBridge.onDataReady(JSON.stringify(data));" +
+                "})" +
+                ".catch(e => AndroidBridge.onSyncError(e.message));" +
+                "})();";
+        } else if ("xubei".equals(platform)) {
+            // 虚贝
+            jsCode = "(function() {" +
+                "fetch('/user/goods/list?page=1&pageSize=200', {" +
+                "  credentials: 'include'" +
+                "})" +
+                ".then(r => r.json())" +
+                ".then(data => {" +
+                "  AndroidBridge.onDataReady(JSON.stringify(data));" +
+                "})" +
+                ".catch(e => AndroidBridge.onSyncError(e.message));" +
+                "})();";
+        }
 
-                // 获取Cookie - 从多个域名获取，确保拿到所有cookie
-                CookieManager cookieManager = CookieManager.getInstance();
-                cookieManager.flush(); // 确保cookie写入磁盘
-                
-                StringBuilder allCookies = new StringBuilder();
-                
-                // 1. 当前URL的cookie
-                String currentCookies = cookieManager.getCookie(currentUrl);
-                if (currentCookies != null && !currentCookies.isEmpty()) {
-                    allCookies.append(currentCookies);
-                }
-                
-                // 2. 各个平台主域名的cookie
-                String[] domains = {
-                    "https://www.uhaozu.com",
-                    "https://www.mimaapp.com", 
-                    "https://passport.xubei.com",
-                    "https://user-server.xubei.com"
-                };
-                for (String domain : domains) {
-                    String domainCookies = cookieManager.getCookie(domain);
-                    if (domainCookies != null && !domainCookies.isEmpty()) {
-                        if (allCookies.length() > 0) allCookies.append("; ");
-                        allCookies.append(domainCookies);
-                    }
-                }
-                
-                String cookies = allCookies.toString();
-                if (cookies == null) cookies = "";
-
-                final String finalCookies = cookies;
-                final String finalCurrentUrl = currentUrl;
-
-                // 从localStorage获取token（密马用），evaluateJavascript也必须在UI线程
-                webView.evaluateJavascript(
-                    "(function() { try { for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k.toLowerCase().indexOf('token')>=0||k.toLowerCase().indexOf('jwt')>=0)return localStorage.getItem(k);} } catch(e){} return ''; })()",
-                    value -> {
-                        String t = value.replace("\"", "").replace("\"", "");
-                        if (!t.equals("null") && !t.isEmpty()) {
-                            saveToApi(finalCookies, t, finalCurrentUrl);
-                        } else {
-                            saveToApi(finalCookies, "", finalCurrentUrl);
-                        }
-                    }
-                );
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    isSaving = false;
-                    btnComplete.setEnabled(true);
-                    btnComplete.setText("登录完成");
-                    Toast.makeText(LoginActivity.this, "保存失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                });
-            }
-        });
+        webView.evaluateJavascript(jsCode, null);
     }
 
-    private void saveToApi(String cookies, String token, String currentUrl) {
-        new Thread(() -> {
-            try {
-                URL url = new URL(API_BASE + "/api/browser/native-login");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "application/json");
-                if (authToken != null && !authToken.isEmpty()) {
-                    conn.setRequestProperty("Authorization", "Bearer " + authToken);
-                }
-                conn.setDoOutput(true);
-                conn.setConnectTimeout(30000);
-                conn.setReadTimeout(30000);
+    private void uploadDataToServer(String jsonData) throws Exception {
+        URL url = new URL(API_BASE + "/api/import-listings");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
+        conn.setConnectTimeout(30000);
+        conn.setReadTimeout(30000);
 
-                JSONObject json = new JSONObject();
-                json.put("platform", platform);
-                json.put("cookies", cookies);
-                json.put("token", token);
-                json.put("current_url", currentUrl);
-                json.put("nickname", PLATFORM_NAMES.get(platform) + "账号");
+        JSONObject payload = new JSONObject();
+        payload.put("platform", platform);
+        payload.put("data", new JSONObject(jsonData));
 
-                try (OutputStream os = conn.getOutputStream()) {
-                    os.write(json.toString().getBytes("UTF-8"));
-                }
+        OutputStream os = conn.getOutputStream();
+        os.write(payload.toString().getBytes("UTF-8"));
+        os.flush();
+        os.close();
 
-                int responseCode = conn.getResponseCode();
-                BufferedReader reader;
-                if (responseCode == 200) {
-                    reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                } else {
-                    reader = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
-                }
-                StringBuilder response = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    response.append(line);
-                }
-                reader.close();
-
-                JSONObject result = new JSONObject(response.toString());
-
-                runOnUiThread(() -> {
-                    isSaving = false;
-                    if (responseCode == 200 && result.optBoolean("success", false)) {
-                        Toast.makeText(LoginActivity.this, "登录成功！正在同步数据...", Toast.LENGTH_SHORT).show();
-                        setResult(RESULT_OK);
-                        finish();
-                    } else {
-                        btnComplete.setEnabled(true);
-                        btnComplete.setText("登录完成");
-                        Toast.makeText(LoginActivity.this, "保存失败: " + result.optString("detail", "未知错误"), Toast.LENGTH_LONG).show();
-                    }
-                });
-
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    isSaving = false;
-                    btnComplete.setEnabled(true);
-                    btnComplete.setText("登录完成");
-                    Toast.makeText(LoginActivity.this, "网络错误: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                });
+        int code = conn.getResponseCode();
+        if (code == 200) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
             }
-        }).start();
+            reader.close();
+            Log.d("LoginActivity", "服务器返回: " + sb.toString());
+
+            runOnUiThread(() -> {
+                Toast.makeText(LoginActivity.this, "同步成功！", Toast.LENGTH_LONG).show();
+                tvStatus.setText("同步成功！返回App查看");
+                isSaving = false;
+                // 延迟2秒关闭
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    finish();
+                }, 2000);
+            });
+        } else {
+            throw new Exception("服务器返回错误码: " + code);
+        }
     }
 
     @Override
@@ -280,9 +229,7 @@ public class LoginActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        if (webView != null) {
-            webView.destroy();
-        }
         super.onDestroy();
+        webView.destroy();
     }
 }
