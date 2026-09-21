@@ -137,7 +137,8 @@ public class LoginActivity extends AppCompatActivity {
         btnComplete.setEnabled(false);
         btnComplete.setText("保存中...");
 
-        new Thread(() -> {
+        // WebView操作必须在UI线程执行！
+        runOnUiThread(() -> {
             try {
                 // 获取当前页面URL
                 String currentUrl = webView.getUrl();
@@ -148,28 +149,21 @@ public class LoginActivity extends AppCompatActivity {
                 String cookies = cookieManager.getCookie(currentUrl);
                 if (cookies == null) cookies = "";
 
-                // 尝试从localStorage获取token（密马用）
                 final String finalCookies = cookies;
                 final String finalCurrentUrl = currentUrl;
-                try {
-                    webView.evaluateJavascript(
-                        "(function() { try { for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k.toLowerCase().indexOf('token')>=0||k.toLowerCase().indexOf('jwt')>=0)return localStorage.getItem(k);} } catch(e){} return ''; })()",
-                        value -> {
-                            String t = value.replace("\"", "").replace("\"", "");
-                            if (!t.equals("null") && !t.isEmpty()) {
-                                saveToApi(finalCookies, t, finalCurrentUrl);
-                            } else {
-                                saveToApi(finalCookies, "", finalCurrentUrl);
-                            }
+
+                // 从localStorage获取token（密马用），evaluateJavascript也必须在UI线程
+                webView.evaluateJavascript(
+                    "(function() { try { for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k.toLowerCase().indexOf('token')>=0||k.toLowerCase().indexOf('jwt')>=0)return localStorage.getItem(k);} } catch(e){} return ''; })()",
+                    value -> {
+                        String t = value.replace("\"", "").replace("\"", "");
+                        if (!t.equals("null") && !t.isEmpty()) {
+                            saveToApi(finalCookies, t, finalCurrentUrl);
+                        } else {
+                            saveToApi(finalCookies, "", finalCurrentUrl);
                         }
-                    );
-                    return; // 异步处理
-                } catch (Exception e) {
-                    // 忽略，直接保存Cookie
-                }
-
-                saveToApi(cookies, "", currentUrl);
-
+                    }
+                );
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     isSaving = false;
@@ -178,7 +172,7 @@ public class LoginActivity extends AppCompatActivity {
                     Toast.makeText(LoginActivity.this, "保存失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
             }
-        }).start();
+        });
     }
 
     private void saveToApi(String cookies, String token, String currentUrl) {
