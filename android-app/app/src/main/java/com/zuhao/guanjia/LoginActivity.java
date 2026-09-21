@@ -13,7 +13,6 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.ProgressBar;
-import android.widget.TextView;
 import android.widget.Toast;
 import org.json.JSONObject;
 import java.io.BufferedReader;
@@ -25,9 +24,8 @@ import java.net.URLEncoder;
 
 public class LoginActivity extends Activity {
     private WebView webView;
-    private Button btnComplete, btnRefresh;
+    private Button btnComplete;
     private ProgressBar progressBar;
-    private TextView tvStatus;
     private String platform;
     private String loginUrl;
     private String API_BASE;
@@ -46,15 +44,12 @@ public class LoginActivity extends Activity {
 
         webView = findViewById(R.id.webView);
         btnComplete = findViewById(R.id.btnComplete);
-        btnRefresh = findViewById(R.id.btnRefresh);
         progressBar = findViewById(R.id.progressBar);
-        tvStatus = findViewById(R.id.tvStatus);
 
         initWebView();
         loadLoginUrl();
 
         btnComplete.setOnClickListener(v -> syncFromWebView());
-        btnRefresh.setOnClickListener(v -> webView.reload());
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -76,7 +71,6 @@ public class LoginActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 progressBar.setVisibility(View.GONE);
-                tvStatus.setText("登录页已加载，请登录后点\"完成同步\"");
             }
         });
     }
@@ -92,7 +86,7 @@ public class LoginActivity extends Activity {
         public void onDataReady(String jsonData) {
             Log.d("LoginActivity", "收到WebView传来的数据，长度: " + jsonData.length());
             runOnUiThread(() -> {
-                tvStatus.setText("正在上传数据到服务器...");
+                btnComplete.setText("上传中...");
             });
             // 把数据上传到服务器
             new Thread(() -> {
@@ -101,7 +95,6 @@ public class LoginActivity extends Activity {
                 } catch (Exception e) {
                     runOnUiThread(() -> {
                         Toast.makeText(LoginActivity.this, "上传失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                        tvStatus.setText("同步失败，请重试");
                         isSaving = false;
                         btnComplete.setEnabled(true);
                         btnComplete.setText("完成同步");
@@ -114,7 +107,6 @@ public class LoginActivity extends Activity {
         public void onSyncError(String message) {
             runOnUiThread(() -> {
                 Toast.makeText(LoginActivity.this, "同步失败: " + message, Toast.LENGTH_LONG).show();
-                tvStatus.setText("同步失败，请重试");
                 isSaving = false;
                 btnComplete.setEnabled(true);
                 btnComplete.setText("完成同步");
@@ -127,7 +119,6 @@ public class LoginActivity extends Activity {
         isSaving = true;
         btnComplete.setEnabled(false);
         btnComplete.setText("同步中...");
-        tvStatus.setText("正在获取商品数据...");
 
         // 根据不同平台，注入不同的JS代码
         String jsCode = "";
@@ -206,7 +197,6 @@ public class LoginActivity extends Activity {
 
             runOnUiThread(() -> {
                 Toast.makeText(LoginActivity.this, "同步成功！", Toast.LENGTH_LONG).show();
-                tvStatus.setText("同步成功！返回App查看");
                 isSaving = false;
                 // 延迟2秒关闭
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
