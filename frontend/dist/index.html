@@ -138,6 +138,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .filter-chip-item{padding:4px 12px;border-radius:16px;font-size:12px;background:#f2f3f5;color:#646566;cursor:pointer;white-space:nowrap}
 .filter-chip-item.active{background:#1989fa;color:#fff}
 .filter-chip-item:active{opacity:.8}
+@keyframes ripple { 0% { transform: translate(-50%,-50%) scale(0.5); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(2); opacity: 0; } }
 </style>
 </head>
 <body>
@@ -548,7 +549,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
               <button class="btn btn-outline" style="padding:8px 10px;font-size:13px" @click="browserRefresh">🔄</button>
             </div>
             <div id="browser-img-container" style="flex:1;overflow:auto;border:2px solid #e5e6eb;border-radius:8px;background:#f5f6fa;cursor:crosshair;position:relative" @click="browserClick">
-              <img id="browser-screenshot-img" :src="browserScreenshot" style="display:block;transform-origin:top left" :style="{width: (100/browserZoom) + '%', transform: 'scale(' + browserZoom + ')'}" alt="登录页截图" />
+              <div id="click-ripple" style="position:absolute;width:40px;height:40px;border:3px solid #1989fa;border-radius:50%;pointer-events:none;z-index:5;transform:translate(-50%,-50%);display:none;animation:ripple 0.6s ease-out"></div>
+            <img id="browser-screenshot-img" :src="browserScreenshot" style="display:block;transform-origin:top left" :style="{width: (100/browserZoom) + '%', transform: 'scale(' + browserZoom + ')'}" alt="登录页截图" />
               <div v-if="browserLoading" style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.85);display:flex;align-items:center;justify-content:center;font-size:15px;color:#666;z-index:10">{{browserLoadingText}}</div>
             </div>
             <div style="font-size:12px;color:#969799;margin-top:6px">💡 点击截图=鼠标点击 | 上方输入框输入文字 | 🔍+放大截图</div>
@@ -677,6 +679,19 @@ createApp({
       const container = document.getElementById('browser-img-container');
       const img = document.getElementById('browser-screenshot-img');
       if (!container || !img) return;
+      // 立即显示点击涟漪（本地反馈，不等服务器）
+      const ripple = document.getElementById('click-ripple');
+      if (ripple) {
+        const cRect = container.getBoundingClientRect();
+        ripple.style.left = (e.clientX - cRect.left + container.scrollLeft) + 'px';
+        ripple.style.top = (e.clientY - cRect.top + container.scrollTop) + 'px';
+        ripple.style.display = 'block';
+        ripple.style.animation = 'none';
+        ripple.offsetHeight;
+        ripple.style.animation = 'ripple 0.6s ease-out';
+      }
+      browserLoading.value = true;
+      browserLoadingText.value = '';
       const cRect = container.getBoundingClientRect();
       const relX = e.clientX - cRect.left + container.scrollLeft;
       const relY = e.clientY - cRect.top + container.scrollTop;
