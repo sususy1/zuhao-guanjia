@@ -68,14 +68,14 @@ class BrowserSession:
                 '--mute-audio',
                 '--no-first-run',
                 '--no-default-browser-check',
-                '--window-size=1280,900',
+                '--window-size=1024,768',
                 '--single-process',  # 单进程模式，大幅减少线程数
             ]
         )
         logger.info(f"[{self.session_id}] Chromium启动成功")
 
         self.context = await self.browser.new_context(
-            viewport={"width": 1280, "height": 900},
+            viewport={"width": 1024, "height": 768},
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
         await self.context.add_init_script("""
@@ -87,7 +87,7 @@ class BrowserSession:
         
         logger.info(f"[{self.session_id}] 正在打开页面: {url}")
         await self.page.goto(url, wait_until="domcontentloaded", timeout=45000)
-        await self.page.wait_for_timeout(2000)
+        await self.page.wait_for_timeout(1500)
         self.initialized = True
         logger.info(f"[{self.session_id}] 页面加载完成，当前URL: {self.page.url}")
 
@@ -116,7 +116,7 @@ class BrowserSession:
         """截图，返回base64编码的PNG图片"""
         self._ensure_loop()
         async def _shot():
-            return await self.page.screenshot(type="png", full_page=False)
+            return await self.page.screenshot(type="jpeg", quality=75, full_page=False)
         future = asyncio.run_coroutine_threadsafe(_shot(), self.loop)
         img_bytes = future.result(timeout=30)
         return base64.b64encode(img_bytes).decode("utf-8")
@@ -127,7 +127,7 @@ class BrowserSession:
         logger.info(f"[{self.session_id}] 点击坐标: ({x}, {y})")
         async def _click():
             await self.page.mouse.click(x, y)
-            await self.page.wait_for_timeout(800)
+            await self.page.wait_for_timeout(400)
         future = asyncio.run_coroutine_threadsafe(_click(), self.loop)
         future.result(timeout=20)
 
