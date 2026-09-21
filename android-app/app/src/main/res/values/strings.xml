@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">租号管家</string>
+    <string name="login_title">平台登录</string>
+    <string name="login_complete">登录完成</string>
+    <string name="login_cancel">取消</string>
+    <string name="login_hint">请在下方完成平台登录，登录成功后点击"登录完成"</string>
+</resources>
