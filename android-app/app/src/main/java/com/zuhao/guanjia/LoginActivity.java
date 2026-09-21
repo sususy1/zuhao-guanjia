@@ -139,82 +139,69 @@ public class LoginActivity extends AppCompatActivity {
         btnComplete.setEnabled(false);
         btnComplete.setText("保存中...");
 
-        // 先延迟2秒，等cookie完全写入磁盘
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            runOnUiThread(() -> {
-                try {
-                    // 获取当前页面URL
-                    String currentUrl = webView.getUrl();
-                    if (currentUrl == null) currentUrl = loginUrl;
+        // 延迟2秒，等cookie完全写入
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+        // WebView操作必须在UI线程执行！
+        runOnUiThread(() -> {
+            try {
+                // 获取当前页面URL
+                String currentUrl = webView.getUrl();
+                if (currentUrl == null) currentUrl = loginUrl;
 
-                    // 获取Cookie - 从多个域名获取，确保拿到所有cookie
-                    CookieManager cookieManager = CookieManager.getInstance();
-                    cookieManager.flush(); // 强制把cookie写入磁盘
-                    
-                    StringBuilder allCookies = new StringBuilder();
-                    
-                    // 1. 当前URL的cookie
-                    String currentCookies = cookieManager.getCookie(currentUrl);
-                    if (currentCookies != null && !currentCookies.isEmpty()) {
-                        allCookies.append(currentCookies);
-                    }
-                    
-                    // 2. 各个平台主域名的cookie
-                    String[] domains = {
-                        "https://www.uhaozu.com",
-                        "https://www.mimaapp.com", 
-                        "https://passport.xubei.com",
-                        "https://user-server.xubei.com"
-                    };
-                    for (String domain : domains) {
-                        String domainCookies = cookieManager.getCookie(domain);
-                        if (domainCookies != null && !domainCookies.isEmpty()) {
-                            if (allCookies.length() > 0) allCookies.append("; ");
-                            allCookies.append(domainCookies);
-                        }
-                    }
-                    
-                    String cookies = allCookies.toString();
-                    if (cookies == null) cookies = "";
-
-                    // 显示调试信息：拿到了多少个cookie
-                    int cookieCount = cookies.isEmpty() ? 0 : cookies.split(";").length;
-                    StringBuilder keys = new StringBuilder();
-                    if (!cookies.isEmpty()) {
-                        for (String item : cookies.split(";")) {
-                            if (item.contains("=")) {
-                                if (keys.length() > 0) keys.append(",");
-                                keys.append(item.split("=")[0].trim());
-                            }
-                        }
-                    }
-                    Toast.makeText(LoginActivity.this, "获取到" + cookieCount + "个cookie: " + keys.toString(), Toast.LENGTH_LONG).show();
-
-                    final String finalCookies = cookies;
-                    final String finalCurrentUrl = currentUrl;
-
-                    // 从localStorage获取token（密马用）
-                    webView.evaluateJavascript(
-                        "(function() { try { for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k.toLowerCase().indexOf('token')>=0||k.toLowerCase().indexOf('jwt')>=0)return localStorage.getItem(k);} } catch(e){} return ''; })()",
-                        value -> {
-                            String t = value.replace("\"", "").replace("\"", "");
-                            if (!t.equals("null") && !t.isEmpty()) {
-                                saveToApi(finalCookies, t, finalCurrentUrl);
-                            } else {
-                                saveToApi(finalCookies, "", finalCurrentUrl);
-                            }
-                        }
-                    );
-                } catch (Exception e) {
-                    runOnUiThread(() -> {
-                        isSaving = false;
-                        btnComplete.setEnabled(true);
-                        btnComplete.setText("登录完成");
-                        Toast.makeText(LoginActivity.this, "保存失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    });
+                // 获取Cookie - 从多个域名获取，确保拿到所有cookie
+                CookieManager cookieManager = CookieManager.getInstance();
+                cookieManager.flush(); // 确保cookie写入磁盘
+                
+                StringBuilder allCookies = new StringBuilder();
+                
+                // 1. 当前URL的cookie
+                String currentCookies = cookieManager.getCookie(currentUrl);
+                if (currentCookies != null && !currentCookies.isEmpty()) {
+                    allCookies.append(currentCookies);
                 }
-            });
-        }, 2000); // 延迟2秒
+                
+                // 2. 各个平台主域名的cookie
+                String[] domains = {
+                    "https://www.uhaozu.com",
+                    "https://www.mimaapp.com", 
+                    "https://passport.xubei.com",
+                    "https://user-server.xubei.com"
+                };
+                for (String domain : domains) {
+                    String domainCookies = cookieManager.getCookie(domain);
+                    if (domainCookies != null && !domainCookies.isEmpty()) {
+                        if (allCookies.length() > 0) allCookies.append("; ");
+                        allCookies.append(domainCookies);
+                    }
+                }
+                
+                String cookies = allCookies.toString();
+                if (cookies == null) cookies = "";
+
+                final String finalCookies = cookies;
+                final String finalCurrentUrl = currentUrl;
+
+                // 从localStorage获取token（密马用），evaluateJavascript也必须在UI线程
+                webView.evaluateJavascript(
+                    "(function() { try { for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k.toLowerCase().indexOf('token')>=0||k.toLowerCase().indexOf('jwt')>=0)return localStorage.getItem(k);} } catch(e){} return ''; })()",
+                    value -> {
+                        String t = value.replace("\"", "").replace("\"", "");
+                        if (!t.equals("null") && !t.isEmpty()) {
+                            saveToApi(finalCookies, t, finalCurrentUrl);
+                        } else {
+                            saveToApi(finalCookies, "", finalCurrentUrl);
+                        }
+                    }
+                );
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    isSaving = false;
+                    btnComplete.setEnabled(true);
+                    btnComplete.setText("登录完成");
+                    Toast.makeText(LoginActivity.this, "保存失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            }
+        });
     }
 
     private void saveToApi(String cookies, String token, String currentUrl) {
