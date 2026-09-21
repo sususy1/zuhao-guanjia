@@ -243,29 +243,29 @@ def _close_all_sessions():
 
 def create_session(platform: str) -> Tuple[str, str]:
     """创建浏览器会话，返回(session_id, screenshot_base64)
-    全局锁：同时只能有一个浏览器会话
+    全局锁只在创建过程中持有，创建完成后立即释放
     """
     global _active_session_id
     import uuid
-    
-    # 获取全局锁
+
+    # 获取全局锁（只在创建过程中持有，最多等60秒）
     logger.info(f"等待浏览器全局锁...")
-    acquired = _browser_lock.acquire(timeout=120)
+    acquired = _browser_lock.acquire(timeout=60)
     if not acquired:
-        raise Exception("浏览器正忙，请稍后再试（当前有其他用户正在登录）")
-    
+        raise Exception("浏览器正忙，请稍后再试")
+
     try:
         # 先关闭所有旧会话
         _close_all_sessions()
-        
+
         # 获取登录页URL
         url = PLATFORM_LOGIN_URLS.get(platform)
         if not url:
             raise Exception(f"不支持的平台: {platform}")
-        
+
         session_id = str(uuid.uuid4())[:8]
         logger.info(f"创建新浏览器会话: {session_id}, 平台: {platform}, URL: {url}")
-        
+
         session = BrowserSession(session_id)
         try:
             session.start(url)
@@ -273,7 +273,7 @@ def create_session(platform: str) -> Tuple[str, str]:
             logger.error(f"浏览器启动失败: {e}")
             session.close()
             raise Exception(f"打开登录页失败: {e}")
-        
+
         with _sessions_lock:
             _sessions[session_id] = {
                 "session": session,
@@ -281,15 +281,15 @@ def create_session(platform: str) -> Tuple[str, str]:
                 "created_at": time.time(),
             }
         _active_session_id = session_id
-        
+
         screenshot = session.screenshot()
         logger.info(f"会话 {session_id} 创建成功，截图大小: {len(screenshot)}")
         return session_id, screenshot
-        
-    except Exception as e:
-        _browser_lock.release()
-        raise e
 
+    finally:
+        # 无论成功还是失败，都释放锁
+        _browser_lock.release()
+        logger.info("浏览器全局锁已释放")
 
 def get_session(session_id: str) -> Optional[BrowserSession]:
     """获取浏览器会话"""
@@ -314,11 +314,6 @@ def close_session(session_id: str):
     
     if _active_session_id == session_id:
         _active_session_id = None
-        # 释放全局锁
-        try:
-            _browser_lock.release()
-        except:
-            pass
 
 
 def cleanup_expired_sessions(max_age: int = 300):
